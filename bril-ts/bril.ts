@@ -44,7 +44,7 @@ export interface DetValueOperation extends ValueOperationCore {
  int-supported distributions?
  */
 export interface RandValueOperation extends ValueOperationCore {
-  op: "flip";
+  op: "flip" | "rand";
 }
 
 export type ValueOperation = DetValueOperation | RandValueOperation;

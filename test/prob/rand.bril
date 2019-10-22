@@ -1,0 +1,4 @@
+main {
+  c: double = rand;
+  print c;
+}

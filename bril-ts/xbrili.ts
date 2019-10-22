@@ -32,6 +32,7 @@ const argCounts: {[key in bril.OpCode]: number | null} = {
   nop: 0,
   // PROB
   flip: 0,
+  rand: 0,
   obv: 1
 };
 

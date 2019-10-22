@@ -32,6 +32,7 @@ const argCounts: {[key in bril.OpCode]: number | null} = {
   nop: 0,
   // PROB
   flip: 0,
+  rand: 0,
   obv: 1
 };
 
@@ -295,6 +296,11 @@ function evalInstr(instr: bril.Instruction, env: Env, buffer: any[][]): Action {
   
   case "flip": {
     env.set(instr.dest, Math.random() < 0.5);
+    return NEXT;
+  }
+
+  case "rand": {
+    env.set(instr.dest, Math.random());
     return NEXT;
   }
   
