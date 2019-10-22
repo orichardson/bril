@@ -1,0 +1,6 @@
+main {
+	x : double = rand;
+	y : double = rand;
+	z : double = fadd x y;
+	w : double = fadd z x;
+}
