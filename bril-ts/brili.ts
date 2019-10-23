@@ -36,7 +36,7 @@ const argCounts: {[key in bril.OpCode]: number | null} = {
   obv: 1
 };
 
-function get(env: Env, ident: bril.Ident) {
+export function get(env: Env, ident: bril.Ident) {
   let val = env.get(ident);
   if (typeof val === 'undefined') {
     throw `undefined variable ${ident}`;
@@ -90,21 +90,21 @@ function setFloatPrecision (type: bril.Type, value: number) {
  * The thing to do after interpreting an instruction: either transfer
  * control to a label, go to the next instruction, or end thefunction.
  */
-type Action =
+export type Action =
   {"label": bril.Ident} |
   {"next": true} |
   {"end": true} |
   {"restart" : true};
-let NEXT: Action = {"next": true};
-let END: Action = {"end": true};
-let RESTART: Action = {"restart": true};
+export let NEXT: Action = {"next": true};
+export let END: Action = {"end": true};
+export let RESTART: Action = {"restart": true};
 /**
  * Interpret an instruction in a given environment, possibly updating the
  * environment. If the instruction branches to a new label, return that label;
  * otherwise, return "next" to indicate that we should proceed to the next
  * instruction or "end" to terminate the function.
  */
-function evalInstr(instr: bril.Instruction, env: Env, buffer: any[][]): Action {
+export function evalInstr(instr: bril.Instruction, env: Env, buffer: any[][]): Action {
   // Check that we have the right number of arguments.
   if (instr.op !== "const") {
     let count = argCounts[instr.op];
