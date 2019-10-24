@@ -409,4 +409,6 @@ process.argv.forEach((val, index) => {
     // }
   }
 });
-main(argu as Args);
+
+if (require.main === module)
+  main(argu as Args);

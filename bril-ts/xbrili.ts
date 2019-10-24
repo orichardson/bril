@@ -3,34 +3,6 @@ import * as bril from './bril';
 import * as brili from './brili';
 import {readStdin, unreachable, StringifyingMap, Env, Value, env2str} from './util';
 
-// const argCounts: {[key in bril.OpCode]: number | null} = brili.argCounts
-
-// function get(env: Env, ident: bril.Ident) {
-//   let val = env.get(ident);
-//   if (typeof val === 'undefined') {
-//     throw `undefined variable ${ident}`;
-//   }
-//   return val;
-// }
-
-// /**
-//  * Ensure that the instruction has exactly `count` arguments,
-//  * throwing an exception otherwise.
-//  */
-// function checkArgs(instr: bril.Operation, count: number) {
-//   if (instr.args.length != count) {
-//     throw `${instr.op} takes ${count} argument(s); got ${instr.args.length}`;
-//   }
-// }
-
-// function getInt(instr: bril.Operation, env: Env, index: number) {
-//   let val = get(env, instr.args[index]);
-//   if (typeof val !== 'bigint') {
-//     throw `${instr.op} argument ${index} must be a number`;
-//   }
-//   return val;
-// }
-
 function getBool(instr: bril.Operation, env: Env, index: number) {
   let val = brili.get(env, instr.args[index]);
   if (typeof val !== 'boolean') {
@@ -38,23 +10,6 @@ function getBool(instr: bril.Operation, env: Env, index: number) {
   }
   return val;
 }
-
-// // Works for any supported precision of floating point (i.e. float or double)
-// function getFloat(instr: bril.Operation, env: Env, index: number) {
-//   let val = get(env, instr.args[index]);
-//   if (typeof val !== 'number') {
-//     throw `${instr.op} argument ${index} must be a float or double`;
-//   }
-//   return val;
-// }
-
-// // Applies the type-correct level of precision to a floating point operation in bril
-// function setFloatPrecision (type: bril.Type, value: number) {
-//   if (type === "float")
-//     return Math.fround(value)
-//   return value
-// }
-
 
 /**
  * The thing to do after interpreting an instruction: either transfer
@@ -79,180 +34,8 @@ let PC_BYE: Action = { newenvs : [] , ...brili.RESTART };
  */
 function evalInstr(instr: bril.Instruction, env: Env, buffer: any[][]): Action {
   // Check that we have the right number of arguments
-
   let briliAction: brili.Action = brili.evalInstr(instr, env, buffer)
   switch (instr.op) {
-  // case "const": {
-  //   // Ensure that JSON ints get represented appropriately.
-  //   let value: Value;
-  //   if (typeof instr.value === "number") {
-  //     if (instr.type === "double" || instr.type === "float")
-  //       value = setFloatPrecision(instr.type, instr.value);
-  //     else
-  //       value = BigInt(Math.floor(instr.value))
-  //   } else {
-  //     value = instr.value;
-  //   }
-
-  //   env.set(instr.dest, value);
-  //   return NEXT;
-  // }
-  
-  // case "id": {
-  //   let val = get(env, instr.args[0]);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "add": {
-  //   let val = getInt(instr, env, 0) + getInt(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "mul": {
-  //   let val = getInt(instr, env, 0) * getInt(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "sub": {
-  //   let val = getInt(instr, env, 0) - getInt(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "div": {
-  //   let val = getInt(instr, env, 0) / getInt(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "le": {
-  //   let val = getInt(instr, env, 0) <= getInt(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "lt": {
-  //   let val = getInt(instr, env, 0) < getInt(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "gt": {
-  //   let val = getInt(instr, env, 0) > getInt(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "ge": {instr.dest, Math.random() < 0.5
-  //   let val = getInt(instr, env, 0) >= getInt(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "eq": {
-  //   let val = getInt(instr, env, 0) === getInt(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "not": {
-  //   let val = !getBool(instr, env, 0);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "and": {
-  //   let val = getBool(instr, env, 0) && getBool(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "or": {
-  //   let val = getBool(instr, env, 0) || getBool(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-  
-  // case "fadd": {
-  //   let val = getFloat(instr, env, 0) + getFloat(instr, env, 1);
-  //   val = setFloatPrecision(instr.type, val);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "fsub": {
-  //   let val = getFloat(instr, env, 0) - getFloat(instr, env, 1);
-  //   val = setFloatPrecision(instr.type, val);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "fmul": {
-  //   let val = getFloat(instr, env, 0) * getFloat(instr, env, 1);
-  //   val = setFloatPrecision(instr.type, val);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "fdiv": {
-  //   let val = getFloat(instr, env, 0) / getFloat(instr, env, 1);
-  //   val = setFloatPrecision(instr.type, val);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "fle": {
-  //   let val = getFloat(instr, env, 0) <= getFloat(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "flt": {
-  //   let val = getFloat(instr, env, 0) < getFloat(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "fgt": {
-  //   let val = getFloat(instr, env, 0) > getFloat(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "fge": {
-  //   let val = getFloat(instr, env, 0) >= getFloat(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "feq": {
-  //   let val = getFloat(instr, env, 0) === getFloat(instr, env, 1);
-  //   env.set(instr.dest, val);
-  //   return NEXT;
-  // }
-
-  // case "print": {
-  //   let values = instr.args.map(i => get(env, i).toString());
-  //   buffer.push(values);
-  //   return NEXT;
-  // }
-
-  // case "jmp": {
-  //   return {brili, ...ALONE};
-  // }
-
-  // case "br": {
-  //   let cond = getBool(instr, env, 0);
-  //   if (cond) {
-  //     return {"label": instr.args[1], ...ALONE};
-  //   } else {
-  //     return {"label": instr.args[2], ...ALONE};
-  //   }
-  // }
-
   case "ret": {
     return PC_END;
   }
@@ -511,4 +294,5 @@ process.on('unhandledRejection', e => { throw e });
 // });
 // console.log("hi", process.argv)
 
-main();
+if (require.main === module)
+  main();
