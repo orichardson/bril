@@ -1,9 +1,35 @@
 #!/usr/bin/env node
 import * as bril from './bril';
 import * as brili from './brili';
-import {readStdin, unreachable, StringifyingMap, Env, Value, env2str} from './util';
+import {readStdin, unreachable, StringifyingMap} from './util';
 
-function getBool(instr: bril.Operation, env: Env, index: number) {
+
+class Poly extends StringifyingMap<Map<string, BigInt>, Number> {
+  protected stringifyKey(key : Map<string, BigInt>): string { 
+    return map2str(key); 
+  }
+}
+
+type Interval = [Number, Number]
+
+type Value = boolean | BigInt | Number;
+type AbstrValue = Value | Poly;
+
+type AEnv = Map<bril.Ident, AbstrValue>;
+
+function map2str( x : AEnv ) : string {
+  // TODO: does sort actually work for envs? probably not. 
+  return JSON.stringify( Array.from( x ).sort(), (key, value) => {
+  	if (typeof value === 'bigint') {
+  		return value.toString() + 'n';
+  	} else {
+  		return value;
+  	}
+  });
+}
+
+
+function getBool(instr: bril.Operation, env: AEnv, index: number) {
   let val = brili.get(env, instr.args[index]);
   if (typeof val !== 'boolean') {
     throw `${instr.op} argument ${index} must be a boolean`;
@@ -17,7 +43,7 @@ function getBool(instr: bril.Operation, env: Env, index: number) {
  */
 
 type SplitAction =
-  { det : true } | { "newenvs" : [Env, number][] };
+  { det : true } | { "newenvs" : [AEnv, number][] };
 
 let ALONE: SplitAction = { det : true}
 
@@ -27,14 +53,13 @@ let PC_END : Action = {...brili.END,...ALONE };
 let PC_BYE: Action = { newenvs : [] , ...brili.RESTART };
 
 /**
- * Interpret an instruction in a given environment, possibly updating the
- * environment. If the instruction branches to a new label, return that label;
- * otherwise, return "next" to indicate that we should proceed to the next
- * instruction or "end" to terminate the function.
+ * 
  */
-function evalInstr(instr: bril.Instruction, env: Env, buffer: any[][]): Action {
+function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action {
   // Check that we have the right number of arguments
+  
   let briliAction: brili.Action = brili.evalInstr(instr, env, buffer)
+  
   switch (instr.op) {
   case "ret": {
     return PC_END;
@@ -64,13 +89,13 @@ function evalInstr(instr: bril.Instruction, env: Env, buffer: any[][]): Action {
 }
 
 type Loc = number | "done";
-type ProgPt = [Loc, Env]; // program counter, environment
+type ProgPt = [Loc, AEnv]; // program counter, environment
 class PtMap<V> extends StringifyingMap<ProgPt, V> {
   protected stringifyKey(key : ProgPt): string { return pt2str(key); }
 }
 
 function pt2str(pt : ProgPt) : string {
-  return pt[0].toString() + ';'+ env2str(pt[1]);
+  return pt[0].toString() + ';'+ map2str(pt[1]);
 }
 
 

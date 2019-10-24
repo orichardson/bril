@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as bril from './bril';
-import {readStdin, unreachable, Env, Value, env2str} from './util';
+import {readStdin, unreachable} from './util';
 
 const argCounts: {[key in bril.OpCode]: number | null} = {
   add: 2,
@@ -35,6 +35,9 @@ const argCounts: {[key in bril.OpCode]: number | null} = {
   rand: 0,
   obv: 1
 };
+
+type Value = boolean | BigInt | Number;
+type Env = Map<bril.Ident, Value>;
 
 export function get(env: Env, ident: bril.Ident) {
   let val = env.get(ident);
