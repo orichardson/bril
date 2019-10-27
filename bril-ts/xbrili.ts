@@ -8,16 +8,25 @@ class Poly extends StringifyingMap<Map<string, BigInt>, Number> {
   protected stringifyKey(key : Map<string, BigInt>): string { 
     return map2str(key); 
   }
+  
+  static zero : Poly = new Poly([])
+  static one : Poly = new Poly([[new Map(), 1]])
+  
+  // add(other : Poly) : Poly {
+  //   for( k in )
+  // }
+  // 
+  // times(other : Poly) : Poly {
+  // 
+  // }
 }
 
 type Interval = [Number, Number]
+type AbstrValue = Map<Interval, Poly>;
 
-type Value = boolean | BigInt | Number;
-type AbstrValue = Value | Poly;
+type AEnv = {"env": brili.Env, "aenv": Map<bril.Ident, AbstrValue>};
 
-type AEnv = Map<bril.Ident, AbstrValue>;
-
-function map2str( x : AEnv ) : string {
+function map2str( x : Map<string,any> ) : string {
   // TODO: does sort actually work for envs? probably not. 
   return JSON.stringify( Array.from( x ).sort(), (key, value) => {
   	if (typeof value === 'bigint') {
@@ -28,14 +37,18 @@ function map2str( x : AEnv ) : string {
   });
 }
 
-
-function getBool(instr: bril.Operation, env: AEnv, index: number) {
-  let val = brili.get(env, instr.args[index]);
-  if (typeof val !== 'boolean') {
-    throw `${instr.op} argument ${index} must be a boolean`;
-  }
-  return val;
+function cloneAE( aenv: AEnv ) : AEnv {
+  return {env : new Map(aenv.env), aenv : new Map(aenv.aenv)};
 }
+
+
+// function getBool(instr: bril.Operation, env: AEnv, index: number) {
+//   let val = brili.get(env.env, instr.args[index]);
+//   if (typeof val !== 'boolean') {
+//     throw `${instr.op} argument ${index} must be a boolean`;
+//   }
+//   return val;
+// }
 
 /**
  * The thing to do after interpreting an instruction: either transfer
@@ -52,13 +65,11 @@ let PC_NEXT : Action = {...brili.NEXT,...ALONE };
 let PC_END : Action = {...brili.END,...ALONE };
 let PC_BYE: Action = { newenvs : [] , ...brili.RESTART };
 
-/**
- * 
- */
+
 function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action {
   // Check that we have the right number of arguments
   
-  let briliAction: brili.Action = brili.evalInstr(instr, env, buffer)
+  let briliAction: brili.Action = brili.evalInstr(instr, env.env, buffer)
   
   switch (instr.op) {
   case "ret": {
@@ -70,16 +81,20 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   }
 
   case "flip": {
-    let newE1 = new Map(env); // clone env, do both.
-    let newE2 = new Map(env); // clone env, do both.
-    newE1.set(instr.dest, true);
-    newE2.set(instr.dest, false);
+    let newE1 = cloneAE(env); // clone env, do both.
+    let newE2 = cloneAE(env); // clone env, do both.
+    newE1.env.set(instr.dest, true);
+    newE2.env.set(instr.dest, false);
     return { newenvs : [[newE1, 0.5], [newE2, 0.5]], ...PC_NEXT};
   }
 
   case "obv": {
-    let cond = getBool(instr, env, 0);
+    let cond = brili.getBool(instr, env.env, 0);
     return cond ? PC_NEXT : PC_BYE;
+  }
+  
+  case "rand": {
+    env.aenv.set(instr.dest, new Map([[[0,1], Poly.one]]) ) // poly.one is a lie
   }
   
   default: {
@@ -95,7 +110,7 @@ class PtMap<V> extends StringifyingMap<ProgPt, V> {
 }
 
 function pt2str(pt : ProgPt) : string {
-  return pt[0].toString() + ';'+ map2str(pt[1]);
+  return pt[0].toString() + ';'+ map2str(pt[1].env)+"&"+map2str(pt[1].aenv);
 }
 
 
@@ -107,7 +122,7 @@ function makeTransFn(func: bril.Function, iobuf : any[][]) {
     }
 
     let line = func.instrs[i];
-    let env = new Map(old_env);
+    let env = cloneAE(old_env);
 
     if ('op' in line) {
       let action = evalInstr(line, env, iobuf);
@@ -183,7 +198,7 @@ function evalFunc(func: bril.Function, buffer: any[][],
   // TODO: make this a priority queue
   type Task = "explore" | "merge";
   let NEW : Task = "explore";
-  let START : ProgPt = [0, new Map()];
+  let START : ProgPt = [0, {env: new Map(), aenv: new Map()}];
 
   let queue : PtMap<Task> = new PtMap([[START, NEW]]);
   probs.set(START, 1);

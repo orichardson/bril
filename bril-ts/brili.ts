@@ -36,8 +36,8 @@ const argCounts: {[key in bril.OpCode]: number | null} = {
   obv: 1
 };
 
-type Value = boolean | BigInt | Number;
-type Env = Map<bril.Ident, Value>;
+export type Value = boolean | BigInt | Number;
+export type Env = Map<bril.Ident, Value>;
 
 export function get(env: Env, ident: bril.Ident) {
   let val = env.get(ident);
@@ -65,7 +65,7 @@ function getInt(instr: bril.Operation, env: Env, index: number) {
   return val;
 }
 
-function getBool(instr: bril.Operation, env: Env, index: number) {
+export function getBool(instr: bril.Operation, env: Env, index: number) {
   let val = get(env, instr.args[index]);
   if (typeof val !== 'boolean') {
     throw `${instr.op} argument ${index} must be a boolean`;

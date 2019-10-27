@@ -16,6 +16,15 @@ export function unreachable(x: never) {
   throw "impossible case reached";
 }
 
+export function fresh(prefix: string, sofar: Set<string>) {
+  for( let i = 1; ; i++) {
+    let name = prefix + i;
+    if (!sofar.has(name)){
+      return name;
+    }
+  }
+}
+
 /**
  * Taken from below, and modified to compile.
  * https://stackoverflow.com/questions/29759480/how-to-customize-object-equality-for-javascript-set
