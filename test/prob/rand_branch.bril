@@ -1,0 +1,14 @@
+main {
+  x: double = rand;
+  y: double = 0.4;
+  b: bool = flt x y;
+  branch b b1 b2
+b1:
+  a: int = 1;
+  print a;
+  ret;
+b2:
+  a: int = 2;
+  print a;
+  ret;
+}

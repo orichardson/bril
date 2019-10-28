@@ -3,12 +3,24 @@ import * as bril from './bril';
 import * as brili from './brili';
 import {readStdin, unreachable, StringifyingMap} from './util';
 
+function fresh(vals : IterableIterator<string>, name : string) : string {
+  var i;
+  for (i = 0; ; i++) {
+    var s = name + "_" + i
+    if (!(s in vals))
+      return s;
+  }
+}
+
+function fresh_rand(vals : IterableIterator<string>) : string {
+  return fresh(vals, "_r");
+}
 
 class Poly extends StringifyingMap<Map<string, BigInt>, Number> {
   protected stringifyKey(key : Map<string, BigInt>): string { 
     return map2str(key); 
   }
-  
+
   static zero : Poly = new Poly([])
   static one : Poly = new Poly([[new Map(), 1]])
   
@@ -72,12 +84,12 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   let briliAction: brili.Action = brili.evalInstr(instr, env.env, buffer)
   
   switch (instr.op) {
-  case "ret": {
-    return PC_END;
+  case "flt": {
+
   }
 
-  case "nop": {
-    return PC_NEXT;
+  case "ret": {
+    return PC_END;
   }
 
   case "flip": {
@@ -94,7 +106,10 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   }
   
   case "rand": {
-    env.aenv.set(instr.dest, new Map([[[0,1], Poly.one]]) ) // poly.one is a lie
+    let newEnv = cloneAE(env);
+    let temp : [Number, Number] = [0.,1.];
+    newEnv.aenv.set(fresh(env.aenv.keys(), instr.dest), new Map([[temp, Poly.one]]));
+    return { newenvs : [[env, 1]], ...PC_NEXT}
   }
   
   default: {
