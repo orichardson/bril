@@ -1,0 +1,14 @@
+main {
+  x: double = rand;
+  y: double = const .7;
+  b: bool = flt x y;
+  br b continue branch2;
+continue:
+	z: double = const .4;
+	b2: bool = flt x z;
+	br b2 branch2 branch1;
+branch1:
+	ret;
+branch2:
+  ret;
+}

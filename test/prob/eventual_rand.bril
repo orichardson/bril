@@ -1,5 +1,7 @@
 main {
+  b: bool = const false;
 start : 
+  b: bool = not b;
   x: double = rand;
   y: double = const .5;
   z: bool = flt x y;

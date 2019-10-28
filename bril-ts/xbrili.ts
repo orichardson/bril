@@ -13,6 +13,7 @@ function fresh(vals : IterableIterator<string>, name : string) : string {
   }
 }
 
+
 class Poly extends StringifyingMap<Map<string, BigInt>, Number> {
   protected stringifyKey(key : Map<string, BigInt>): string { 
     return map2str(key); 
@@ -20,11 +21,14 @@ class Poly extends StringifyingMap<Map<string, BigInt>, Number> {
 
   static rand_count : number = -1;
   static fresh_rand() : string {
+    //console.log("fresh_rand", Poly.rand_count)
     Poly.rand_count++;
     return "_r_" + Poly.rand_count;
   }
   static zero : Poly = new Poly([])
-  static fresh : Poly = new Poly([[new Map([[Poly.fresh_rand(), BigInt(1)]]), 1]])
+  static fresh() : Poly { 
+    return  new Poly([[new Map([[Poly.fresh_rand(), BigInt(1)]]), 1]])
+  }
   
   // add(other : Poly) : Poly {
   //   for( k in )
@@ -130,7 +134,7 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
           let fv : [number, number] = [Math.max(v[0], val), v[1]]
           interTrue.delete(v); interTrue.set(tv, k)
           interFalse.delete(v); interFalse.set(fv, k)
-          probFalse += tv[1] - tv[0]; probTrue += fv[1] - fv[0]
+          probTrue += tv[1] - tv[0]; probFalse += fv[1] - fv[0]
         }
       })
       let totalProb = totalAVInterval(inter)
@@ -159,7 +163,8 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   
   case "rand": {
     let newEnv = cloneAE(env);
-    newEnv.aenv.set(instr.dest, new Map([[[0.,1.], Poly.fresh]]));
+    newEnv.aenv.set(instr.dest, new Map([[[0.,1.], Poly.fresh()]]));
+    newEnv.env.set(instr.dest, 0.5);
     return { newenvs : [[newEnv, 1]], ...PC_NEXT}
   }
   
@@ -176,6 +181,7 @@ class PtMap<V> extends StringifyingMap<ProgPt, V> {
 }
 
 function pt2str(pt : ProgPt) : string {
+  // TODO: remove all variables in aenv from env, for comparison
   return pt[0].toString() + ';'+ map2str(pt[1].env)+"&"+map2str(pt[1].aenv);
 }
 
