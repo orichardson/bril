@@ -13,9 +13,17 @@ function fresh(vals : IterableIterator<string>, name : string) : string {
   }
 }
 
+function getVar<K, V>(a : Map<K, V> | StringifyingMap<K,V>, v : K) : V {
+  let val = a.get(v);
+  if (typeof val === 'undefined') {
+    throw `undefined variable ${v}`;
+  }
+  return val
+}
 
-class Poly extends StringifyingMap<Map<string, BigInt>, Number> {
-  protected stringifyKey(key : Map<string, BigInt>): string { 
+type BasisElt = Map<string, BigInt>
+class Poly extends StringifyingMap<BasisElt, number> {
+  protected stringifyKey(key : BasisElt): string { 
     return map2str(key); 
   }
 
@@ -30,22 +38,27 @@ class Poly extends StringifyingMap<Map<string, BigInt>, Number> {
     return  new Poly([[new Map([[Poly.fresh_rand(), BigInt(1)]]), 1]])
   }
   
-  // add(other : Poly) : Poly {
-  //   for( k in )
-  // }
-  // 
+  
+  add(other : Poly) : Poly {
+    other.keyList().forEach( ( mono : BasisElt)  => {
+      let coef = getVar(other, mono)
+      if(this.has(mono)) {
+        let mycoef = getVar(this, mono);
+        this.set(mono, mycoef+coef);
+      }
+      else {
+        this.set(mono, coef);
+      }
+    });
+    return this
+  }
+  
   // times(other : Poly) : Poly {
   // 
   // }
 }
 
-function getVar<K, V>(a : Map<K, V>, v : K) : V {
-  let val = a.get(v);
-  if (typeof val === 'undefined') {
-    throw `undefined variable ${v}`;
-  }
-  return val
-}
+
 
 type Interval = [number, number]
 type AbstrValue = Map<Interval, Poly>;
@@ -163,7 +176,9 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   
   case "rand": {
     let newEnv = cloneAE(env);
-    newEnv.aenv.set(instr.dest, new Map([[[0.,1.], Poly.fresh()]]));
+    var poly = Poly.fresh();
+    // poly = poly.add(poly).add(Poly.fresh())
+    newEnv.aenv.set(instr.dest, new Map([[[0.,1.], poly]]));
     newEnv.env.set(instr.dest, 0.5);
     return { newenvs : [[newEnv, 1]], ...PC_NEXT}
   }
