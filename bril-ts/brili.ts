@@ -74,7 +74,7 @@ export function getBool(instr: bril.Operation, env: Env, index: number) {
 }
 
 // Works for any supported precision of floating point (i.e. float or double)
-function getFloat(instr: bril.Operation, env: Env, index: number) {
+export function getFloat(instr: bril.Operation, env: Env, index: number) {
   let val = get(env, instr.args[index]);
   if (typeof val !== 'number') {
     throw `${instr.op} argument ${index} must be a float or double`;

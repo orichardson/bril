@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const util = require('util')
 import * as bril from './bril';
 import * as brili from './brili';
 import {readStdin, unreachable, StringifyingMap} from './util';
@@ -12,17 +13,18 @@ function fresh(vals : IterableIterator<string>, name : string) : string {
   }
 }
 
-function fresh_rand(vals : IterableIterator<string>) : string {
-  return fresh(vals, "_r");
-}
-
 class Poly extends StringifyingMap<Map<string, BigInt>, Number> {
   protected stringifyKey(key : Map<string, BigInt>): string { 
     return map2str(key); 
   }
 
+  static rand_count : number = -1;
+  static fresh_rand() : string {
+    Poly.rand_count++;
+    return "_r_" + Poly.rand_count;
+  }
   static zero : Poly = new Poly([])
-  static one : Poly = new Poly([[new Map(), 1]])
+  static fresh : Poly = new Poly([[new Map([[Poly.fresh_rand(), BigInt(1)]]), 1]])
   
   // add(other : Poly) : Poly {
   //   for( k in )
@@ -33,8 +35,24 @@ class Poly extends StringifyingMap<Map<string, BigInt>, Number> {
   // }
 }
 
-type Interval = [Number, Number]
+function getVar<K, V>(a : Map<K, V>, v : K) : V {
+  let val = a.get(v);
+  if (typeof val === 'undefined') {
+    throw `undefined variable ${v}`;
+  }
+  return val
+}
+
+type Interval = [number, number]
 type AbstrValue = Map<Interval, Poly>;
+
+
+
+function totalAVInterval(av : AbstrValue) : number {
+  let res = 0.;
+  av.forEach((_, v) => res += (v[1] - v[0]));
+  return res;
+}
 
 type AEnv = {"env": brili.Env, "aenv": Map<bril.Ident, AbstrValue>};
 
@@ -50,7 +68,9 @@ function map2str( x : Map<string,any> ) : string {
 }
 
 function cloneAE( aenv: AEnv ) : AEnv {
-  return {env : new Map(aenv.env), aenv : new Map(aenv.aenv)};
+  let aenv2 : Map<bril.Ident, AbstrValue> = new Map()
+  aenv.aenv.forEach((v, k) => aenv2.set(k, new Map(v)))
+  return {env : new Map(aenv.env), aenv : new Map(aenv2)};
 }
 
 
@@ -80,16 +100,48 @@ let PC_BYE: Action = { newenvs : [] , ...brili.RESTART };
 
 function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action {
   // Check that we have the right number of arguments
-  
+
   let briliAction: brili.Action = brili.evalInstr(instr, env.env, buffer)
-  
+
   switch (instr.op) {
   case "flt": {
-
-  }
-
-  case "ret": {
-    return PC_END;
+    let left = instr.args[0]
+    let right = instr.args[1]
+    let newE1 = cloneAE(env); // clone env, do both.
+    let newE2 = cloneAE(env); // clone env, do both.
+    newE1.env.set(instr.dest, true);
+    newE2.env.set(instr.dest, false);
+    if (env.aenv.has(left) && env.aenv.has(right)) {
+      throw new Error("Unimplemented")
+    }  if (env.aenv.has(left)) {
+      let val = brili.getFloat(instr, env.env, 1)
+      let inter = getVar(env.aenv, left);
+      let interTrue = getVar(newE1.aenv, left);
+      let interFalse = getVar(newE2.aenv, left);
+      let probTrue = 0.;
+      let probFalse = 0.;
+      inter.forEach((k, v) => {
+        if (val > v[1])
+          probFalse += v[1] - v[0]
+        else if (val < v[0]) 
+          probTrue  += v[1] - v[0]
+        else {
+          let tv : [number, number] = [v[0], Math.min(v[1], val)]
+          let fv : [number, number] = [Math.max(v[0], val), v[1]]
+          interTrue.delete(v); interTrue.set(tv, k)
+          interFalse.delete(v); interFalse.set(fv, k)
+          probFalse += tv[1] - tv[0]; probTrue += fv[1] - fv[0]
+        }
+      })
+      let totalProb = totalAVInterval(inter)
+      return { newenvs : 
+          [[newE1, probTrue / totalProb], 
+          [newE2, probFalse / totalProb]],
+          ...PC_NEXT}
+    }  if (env.aenv.has(right)) {
+      throw new Error("Unimplemented")
+    }
+    return {...briliAction, ...ALONE}
   }
 
   case "flip": {
@@ -107,9 +159,8 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   
   case "rand": {
     let newEnv = cloneAE(env);
-    let temp : [Number, Number] = [0.,1.];
-    newEnv.aenv.set(fresh(env.aenv.keys(), instr.dest), new Map([[temp, Poly.one]]));
-    return { newenvs : [[env, 1]], ...PC_NEXT}
+    newEnv.aenv.set(instr.dest, new Map([[[0.,1.], Poly.fresh]]));
+    return { newenvs : [[newEnv, 1]], ...PC_NEXT}
   }
   
   default: {
@@ -319,7 +370,8 @@ function evalFunc(func: bril.Function, buffer: any[][],
 
   // console.log('****************************************');
   let finalDist = best.get(START)!;
-  finalDist.keyList().forEach( k => console.log('   ', k, finalDist.get(k)))
+  finalDist.keyList().forEach( k => console.log('   ', 
+    util.inspect(k, {showHidden: false, depth: null}), finalDist.get(k)))
   // console.log(best);
 }
 function evalProg(prog: bril.Program) {

@@ -1,0 +1,10 @@
+main {
+start : 
+  x: double = rand;
+  y: double = const .5;
+  z: bool = flt x y;
+  br z start end;
+end :
+  print x;
+  ret;
+}

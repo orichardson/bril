@@ -1,14 +1,14 @@
 main {
   x: double = rand;
-  y: double = 0.4;
+  y: double = const .7;
   b: bool = flt x y;
-  branch b b1 b2
+  br b b1 b2;
 b1:
-  a: int = 1;
+  a: int = const 1;
   print a;
   ret;
 b2:
-  a: int = 2;
+  a: int = const 2;
   print a;
   ret;
 }
