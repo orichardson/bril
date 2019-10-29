@@ -1,3 +1,5 @@
+const util = require('util')
+
 /**
  * Read all the data from stdin as a string.
  */
@@ -26,7 +28,7 @@ export function fresh(prefix: string, sofar: Set<string>) {
 }
 
 /**
- * Taken from below, and modified to compile.
+ * ORiginally aken from below, and modified to my needs.
  * https://stackoverflow.com/questions/29759480/how-to-customize-object-equality-for-javascript-set
  * Map that stringifies the key objects in order to leverage
  * the javascript native Map and preserve key uniqueness.
@@ -49,6 +51,11 @@ export abstract class StringifyingMap<K, V> {
           }
         }
       }
+    }
+    
+    [util.inspect.custom](depth : any, options : any) {
+      let text = util.inspect( new Map<K,V>([...this.keyMap.keys()].map(s => [this.keyMap.get(s)!,this.map.get(s)!]) ) );
+      return `Str${text}`
     }
 
     has(key: K): boolean {

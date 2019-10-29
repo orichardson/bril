@@ -27,11 +27,11 @@ class Poly extends StringifyingMap<BasisElt, number> {
     return map2str(key); 
   }
 
-  static rand_count : number = -1;
+  static rand_count : number = 0;
   static fresh_rand() : string {
     //console.log("fresh_rand", Poly.rand_count)
-    Poly.rand_count++;
     return "_r_" + Poly.rand_count;
+    Poly.rand_count++;
   }
   static zero : Poly = new Poly([])
   static fresh() : Poly { 
@@ -44,40 +44,60 @@ class Poly extends StringifyingMap<BasisElt, number> {
     return new Poly([[new Map(), c]])
   }
   
+  tostr() : string {
+  // [util.inspect.custom](depth, options) {
+    let str = this.keyList().map( b => {
+      let coef = this.get(b);
+      let bstr = '';
+      for (let [k,v] of b) {
+        bstr += " "+ k
+        if (v != BigInt(1)) {
+          bstr += `^${v}`
+        }
+      }      
+      return coef == 1 ? bstr : `(${coef})` + bstr;
+    }).join(' + ')
+    
+    if(str.length == 0) return "0";
+    return str;
+  }
+  
+  [util.inspect.custom](depth : any, options : any) {
+    return "Poly: "+ this.tostr();
+  }
+  
   copy() : Poly {
     let res =  new Poly();
-    this.keyList().forEach( k => {
+    for(let k of this.keys()) {
       let v = getVar(this, k)
       let temp = new Map();
       k.forEach((v2, k2) => {
         temp.set(k2, v2)
       })
       res.set(temp, v)
-    })
+    }
     return res
   }
   
   neg() : Poly {
-    let newPoly = this.copy()
-    this.keyList().forEach( (k, v) => {
-      newPoly.set(k, -v)
-    })
-    return newPoly
+    for ( let k of this.keys()) {
+      this.set(k, -this.get(k)!)
+    }
+    return this
   }
 
   add(other : Poly) : Poly {
-    let newPoly = this.copy()
-    other.keyList().forEach( ( mono : BasisElt)  => {
-      let coef = getVar(other, mono)
-      if(newPoly.has(mono)) {
-        let mycoef = getVar(newPoly, mono);
-        newPoly.set(mono, mycoef+coef);
+    for(let belt of other.keys()) {
+      let coef = getVar(other, belt)
+      if(this.has(belt)) {
+        let mycoef = getVar(this, belt);
+        this.set(belt, mycoef+coef);
       }
       else {
-        newPoly.set(mono, coef);
+        this.set(belt, coef);
       }
-    });
-    return newPoly
+    }
+    return this
   }
   
   // times(other : Poly) : Poly {
@@ -88,17 +108,25 @@ class Poly extends StringifyingMap<BasisElt, number> {
 
 
 type Interval = [number, number]
-type AbstrValue = Map<Interval, Poly>;
+type Spline = Map<Interval, Poly>;
 
 
+function spline2str(s : Spline) {
+  let toret = ""
+  s.forEach( (poly, interval)  => {
+    toret += `[${interval[0]}, ${interval[1]}]: ${poly.tostr()} \n`;
+  })
+  return toret
+}
 
-function totalAVInterval(av : AbstrValue) : number {
+
+function totalAVInterval(av : Spline) : number {
   let res = 0.;
   av.forEach((_, v) => res += (v[1] - v[0]));
   return res;
 }
 
-type AEnv = {"env": brili.Env, "aenv": Map<bril.Ident, AbstrValue>};
+type AEnv = {"env": brili.Env, "aenv": Map<bril.Ident, Spline>};
 
 function map2str( x : Map<string,any> ) : string {
   // TODO: does sort actually work for envs? probably not. 
@@ -112,7 +140,7 @@ function map2str( x : Map<string,any> ) : string {
 }
 
 function cloneAE( aenv: AEnv ) : AEnv {
-  let aenv2 : Map<bril.Ident, AbstrValue> = new Map()
+  let aenv2 : Map<bril.Ident, Spline> = new Map()
   aenv.aenv.forEach((v, k) => aenv2.set(k, new Map(v)))
   return {env : new Map(aenv.env), aenv : new Map(aenv2)};
 }
@@ -158,9 +186,9 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
       // We need to forward propogate when branching anyway, so...
       let newPoly = (vl : Poly, vr : Poly) => {
         if (left === instr.dest)
-          return vl.add(Poly.var(right))
+          return vl.copy().add(Poly.var(right))
         if (right === instr.dest)
-          return vr.add(Poly.var(left))
+          return vr.copy().add(Poly.var(left))
         return Poly.var(left).add(Poly.var(right))
       }
       let newInt = new Map();
@@ -237,12 +265,12 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   }
   
   case "rand": {
-    let newEnv = cloneAE(env);
+    // let newEnv = cloneAE(env);
     var poly = Poly.fresh();
     // poly = poly.add(poly).add(Poly.fresh())
-    newEnv.aenv.set(instr.dest, new Map([[[0.,1.], poly]]));
-    newEnv.env.set(instr.dest, 0.5);
-    return { newenvs : [[newEnv, 1]], ...PC_NEXT}
+    env.aenv.set(instr.dest, new Map([[[0.,1.], poly]]));
+    env.env.set(instr.dest, 0.5);
+    return PC_NEXT;
   }
   
   default: {
@@ -453,8 +481,11 @@ function evalFunc(func: bril.Function, buffer: any[][],
 
   // console.log('****************************************');
   let finalDist = best.get(START)!;
-  finalDist.keyList().forEach( k => console.log('   ', 
-    util.inspect(k, {showHidden: false, depth: null}), finalDist.get(k)))
+  let opts = {showHidden: false, depth: null, colors: true };
+  finalDist.keyList().forEach( k => console.log('\n', 
+    k[0] + '. ', 
+    "env: "+ util.inspect(k[1].env, opts),
+    "aenv: "+ util.inspect(k[1].aenv, opts), finalDist.get(k)))
   // console.log(best);
 }
 function evalProg(prog: bril.Program) {
