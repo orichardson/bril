@@ -30,12 +30,13 @@ label.1: IDENT ":"
 
 lit: SIGNED_INT  -> int
   | BOOL     -> bool
-  | DECIMAL  -> double
+  | SIGNED_DECIMAL  -> double
   | FLOAT  -> bril_float
 
 type: CNAME
 BOOL: "true" | "false"
-FLOAT: DECIMAL "f"
+SIGNED_DECIMAL: "-"? DECIMAL
+FLOAT: SIGNED_DECIMAL "f"
 IDENT: ("_"|"%"|LETTER) ("_"|"%"|"."|LETTER|DIGIT)*
 COMMENT: /#.*/
 

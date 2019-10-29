@@ -1,11 +1,14 @@
 main {
   x: double = rand;
-  y: double = const .7;
-  b: bool = flt x y;
+  x2: double = fadd x x;
+  bound1: double = const .7;
+  b: bool = flt x2 bound1;
   br b continue branch2;
 continue:
-	z: double = const .4;
-	b2: bool = flt x z;
+	z: double = rand;
+  x3: double = fadd x z;
+  bound2: double = const 1.4;
+	b2: bool = flt x3 bound2;
 	br b2 branch2 branch1;
 branch1:
 	ret;

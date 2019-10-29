@@ -3,4 +3,5 @@ main {
 	y : double = rand;
 	z : double = fadd x y;
 	w : double = fadd z x;
+	q : double = fadd w w;
 }

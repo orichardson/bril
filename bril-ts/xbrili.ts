@@ -35,22 +35,49 @@ class Poly extends StringifyingMap<BasisElt, number> {
   }
   static zero : Poly = new Poly([])
   static fresh() : Poly { 
-    return  new Poly([[new Map([[Poly.fresh_rand(), BigInt(1)]]), 1]])
+    return new Poly([[new Map([[Poly.fresh_rand(), BigInt(1)]]), 1]])
+  }
+  static var(s : string) : Poly { 
+    return new Poly([[new Map([[s, BigInt(1)]]), 1]])
+  }
+  static const(c : number) : Poly { 
+    return new Poly([[new Map(), c]])
   }
   
+  copy() : Poly {
+    let res =  new Poly();
+    this.keyList().forEach( k => {
+      let v = getVar(this, k)
+      let temp = new Map();
+      k.forEach((v2, k2) => {
+        temp.set(k2, v2)
+      })
+      res.set(temp, v)
+    })
+    return res
+  }
   
+  neg() : Poly {
+    let newPoly = this.copy()
+    this.keyList().forEach( (k, v) => {
+      newPoly.set(k, -v)
+    })
+    return newPoly
+  }
+
   add(other : Poly) : Poly {
+    let newPoly = this.copy()
     other.keyList().forEach( ( mono : BasisElt)  => {
       let coef = getVar(other, mono)
-      if(this.has(mono)) {
-        let mycoef = getVar(this, mono);
-        this.set(mono, mycoef+coef);
+      if(newPoly.has(mono)) {
+        let mycoef = getVar(newPoly, mono);
+        newPoly.set(mono, mycoef+coef);
       }
       else {
-        this.set(mono, coef);
+        newPoly.set(mono, coef);
       }
     });
-    return this
+    return newPoly
   }
   
   // times(other : Poly) : Poly {
@@ -121,6 +148,42 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   let briliAction: brili.Action = brili.evalInstr(instr, env.env, buffer)
 
   switch (instr.op) {
+  case "fadd": {
+    let left = instr.args[0]
+    let right = instr.args[1]
+    // Both Abstract
+    if (env.aenv.has(left) && env.aenv.has(right)) {
+      // Note that we need a special case when reassigning to avoid shenanigans
+      // TODO: propogate reassigning forward...or make a fresh variable?  Not sure tbh
+      // We need to forward propogate when branching anyway, so...
+      let newPoly = (vl : Poly, vr : Poly) => {
+        if (left === instr.dest)
+          return vl.add(Poly.var(right))
+        if (right === instr.dest)
+          return vr.add(Poly.var(left))
+        return Poly.var(left).add(Poly.var(right))
+      }
+      let newInt = new Map();
+      getVar(env.aenv, left).forEach((vl, kl) => 
+        getVar(env.aenv, right).forEach((vr, kr) => 
+          newInt.set([kl[0] + kr[0], kl[1] + kr[1]], newPoly(vl, vr))))
+      env.aenv.set(instr.dest, newInt)
+    } // Left abstract
+    else if (env.aenv.has(left)) {
+      let val = brili.getFloat(instr, env.env, 1);
+      let newPoly = (v : Poly) => {
+        if (left === instr.dest)
+        return Poly.var(left).add(Poly.const(val))
+      }
+      let newInt = new Map();
+      getVar(env.aenv, left).forEach((v, k) => 
+        newInt.set([k[0] + val, k[1] + val], newPoly(v)))
+      env.aenv.set(instr.dest, newInt)
+    } else if (env.aenv.has(right)) {
+      throw new Error("Unimplemented")
+    } return {...briliAction, ...ALONE}
+  }
+
   case "flt": {
     let left = instr.args[0]
     let right = instr.args[1]
@@ -130,23 +193,23 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
     newE2.env.set(instr.dest, false);
     if (env.aenv.has(left) && env.aenv.has(right)) {
       throw new Error("Unimplemented")
-    }  if (env.aenv.has(left)) {
+    } if (env.aenv.has(left)) {
       let val = brili.getFloat(instr, env.env, 1)
       let inter = getVar(env.aenv, left);
       let interTrue = getVar(newE1.aenv, left);
       let interFalse = getVar(newE2.aenv, left);
       let probTrue = 0.;
       let probFalse = 0.;
-      inter.forEach((k, v) => {
-        if (val > v[1])
-          probFalse += v[1] - v[0]
-        else if (val < v[0]) 
-          probTrue  += v[1] - v[0]
+      inter.forEach((v, k) => {
+        if (val > k[1])
+          probFalse += k[1] - k[0]
+        else if (val < k[0]) 
+          probTrue  += k[1] - k[0]
         else {
-          let tv : [number, number] = [v[0], Math.min(v[1], val)]
-          let fv : [number, number] = [Math.max(v[0], val), v[1]]
-          interTrue.delete(v); interTrue.set(tv, k)
-          interFalse.delete(v); interFalse.set(fv, k)
+          let tv : [number, number] = [k[0], Math.min(k[1], val)]
+          let fv : [number, number] = [Math.max(k[0], val), k[1]]
+          interTrue.delete(k); interTrue.set(tv, v)
+          interFalse.delete(k); interFalse.set(fv, v)
           probTrue += tv[1] - tv[0]; probFalse += fv[1] - fv[0]
         }
       })
@@ -155,10 +218,9 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
           [[newE1, probTrue / totalProb], 
           [newE2, probFalse / totalProb]],
           ...PC_NEXT}
-    }  if (env.aenv.has(right)) {
+    } if (env.aenv.has(right)) {
       throw new Error("Unimplemented")
-    }
-    return {...briliAction, ...ALONE}
+    } return {...briliAction, ...ALONE}
   }
 
   case "flip": {
