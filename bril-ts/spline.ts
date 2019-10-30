@@ -176,6 +176,15 @@ export class Spline extends Map<Interval, Poly> {
 	integrate() : number {
 		return 0;
 	}
+	
+	copy() : Spline {
+	  let toret = new Spline()
+	  this.forEach( (poly, interval) => {
+	    toret.set(interval, poly.copy())
+	  })
+	  return toret
+	}
+
 }
 
 export function spline2str(s : Spline) {
@@ -185,8 +194,6 @@ export function spline2str(s : Spline) {
   })
   return toret
 }
-
-<<<<<<< HEAD
 
 //*******************************************//
 
@@ -198,12 +205,3 @@ process.on('unhandledRejection', e => { throw e });
 
 if (require.main === module)
   test();
-=======
-export function copySpline(s : Spline) {
-  let toret = new Map()
-  s.forEach( (poly, interval) => {
-    toret.set(interval, poly.copy())
-  })
-  return toret
-}
->>>>>>> 7466d39ee8af988a6f7129accc2c5e025619659a

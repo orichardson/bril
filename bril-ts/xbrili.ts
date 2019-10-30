@@ -3,7 +3,7 @@ const util = require('util')
 import * as bril from './bril';
 import * as brili from './brili';
 import {readStdin, unreachable, StringifyingMap, map2str} from './util';
-import {Poly, Spline, spline2str, getVar, copySpline} from './spline';
+import {Poly, Spline, spline2str, getVar} from './spline';
 
 
 type AEnv = {"env": brili.Env, "aenv": Map<bril.Ident, Spline>};
@@ -68,7 +68,7 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
       // Note that we need a special case when reassigning to avoid shenanigans
       // TODO: propogate reassigning forward...or make a fresh variable?  Not sure tbh
       // We need to forward propogate when branching anyway, so...
-      let newInt = new Map();
+      let newInt  = new Spline();
       getVar(env.aenv, left).forEach((vl, kl) => {
         getVar(env.aenv, right).forEach((vr, kr) => {
           let newPoly = vl.copy().add(vr.copy())
@@ -79,7 +79,7 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
     } // Left abstract
     else if (env.aenv.has(left)) {
       let val = brili.getFloat(instr, env.env, 1);
-      let newInt = new Map();
+      let newInt = new Spline();
       getVar(env.aenv, left).forEach((v, k) => {
         let newPoly = v.copy().add(Poly.const(val))
         newInt.set([k[0] + val, k[1] + val], newPoly)
