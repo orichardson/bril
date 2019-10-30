@@ -59,28 +59,26 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
       // Note that we need a special case when reassigning to avoid shenanigans
       // TODO: propogate reassigning forward...or make a fresh variable?  Not sure tbh
       // We need to forward propogate when branching anyway, so...
-      let newPoly = (vl : Poly, vr : Poly) => {
-        if (left === instr.dest)
-          return vl.copy().add(Poly.var(right))
-        if (right === instr.dest)
-          return vr.copy().add(Poly.var(left))
-        return Poly.var(left).add(Poly.var(right))
-      }
       let newInt = new Map();
-      getVar(env.aenv, left).forEach((vl, kl) => 
-        getVar(env.aenv, right).forEach((vr, kr) => 
-          newInt.set([kl[0] + kr[0], kl[1] + kr[1]], newPoly(vl, vr))))
+      getVar(env.aenv, left).forEach((vl, kl) => {
+        getVar(env.aenv, right).forEach((vr, kr) => {
+          let newPoly = vl.copy().add(vr.copy())
+          newInt.set([kl[0] + kr[0], kl[1] + kr[1]], newPoly)
+        })
+      })
       env.aenv.set(instr.dest, newInt)
     } // Left abstract
     else if (env.aenv.has(left)) {
       let val = brili.getFloat(instr, env.env, 1);
       let newPoly = (v : Poly) => {
         if (left === instr.dest)
-        return Poly.var(left).add(Poly.const(val))
+        return v.copy().add(Poly.const(val))
       }
       let newInt = new Map();
-      getVar(env.aenv, left).forEach((v, k) => 
-        newInt.set([k[0] + val, k[1] + val], newPoly(v)))
+      getVar(env.aenv, left).forEach((v, k) => {
+        let newPoly = v.copy().add(Poly.const(val))
+        newInt.set([k[0] + val, k[1] + val], newPoly)
+      })
       env.aenv.set(instr.dest, newInt)
     } else if (env.aenv.has(right)) {
       throw new Error("Unimplemented")
