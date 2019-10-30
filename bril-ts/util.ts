@@ -34,8 +34,8 @@ export function fresh(prefix: string, sofar: Set<string>) {
  * the javascript native Map and preserve key uniqueness.
  */
 export abstract class StringifyingMap<K, V> {
-    private map : Map<string, V> = new Map<string, V>();
-    private keyMap : Map<string, K> = new Map<string, K>();
+    protected map : Map<string, V> = new Map<string, V>();
+    protected keyMap : Map<string, K> = new Map<string, K>();
     
     constructor()
     constructor( array : Array<[K,V]> )

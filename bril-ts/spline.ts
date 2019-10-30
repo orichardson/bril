@@ -19,7 +19,7 @@ export function getVar<K, V>(a : Map<K, V> | StringifyingMap<K,V>, v : K) : V {
   return val
 }
 
-export type BasisElt = Map<string, BigInt>
+export type BasisElt = Map<string, bigint>
 export class Poly extends StringifyingMap<BasisElt, number> {
   protected stringifyKey(key : BasisElt): string { 
     return map2str(key); 
@@ -28,8 +28,7 @@ export class Poly extends StringifyingMap<BasisElt, number> {
   static rand_count : number = 0;
   static fresh_rand() : string {
     //console.log("fresh_rand", Poly.rand_count)
-    return "_r_" + Poly.rand_count;
-    Poly.rand_count++;
+    return "r_" + Poly.rand_count++;
   }
   static zero : Poly = new Poly([])
   static fresh() : Poly { 
@@ -41,6 +40,52 @@ export class Poly extends StringifyingMap<BasisElt, number> {
   static const(c : number) : Poly { 
     return new Poly([[new Map(), c]])
   }
+	static parse(desc : string) : Poly {
+		let pow_exp = /\(?([a-z]\w*)(?:\^([0-9]+))?\)?/g
+		var exp_mono = new RegExp(String.raw`(\+|-)?\s*\(?([0-9.]+)?\)?((?:\s*${pow_exp.source})*)\s*`, 'g')
+		
+		let p = new Poly();
+		
+		
+		let matchdata : RegExpExecArray | null;
+		while( matchdata = exp_mono.exec(desc)) {
+			if(matchdata == null || matchdata[0].trim().length == 0) break;
+			
+			let sgn : number = matchdata[1] == '-' ? -1 : 1
+			let coef : number = matchdata[2] == undefined ? 1 : parseFloat(matchdata[2])
+			
+			// console.log(sgn, coef);
+			
+			let rest = matchdata[3];
+			console.log('rest', rest);
+			let monos : BasisElt = new Map();
+			while(matchdata  = pow_exp.exec(rest)) {
+				if(matchdata == null || matchdata[0].trim().length == 0) 
+					break;
+					
+				console.log(matchdata);
+				
+				let power : string | number = matchdata[2];
+				if(power == undefined) 
+					power = 1;
+				
+				monos.set(matchdata[1], BigInt(power));						
+			}
+			p.set(monos, coef * sgn);			
+			console.log(p);
+			console.log(monos);
+		}
+		
+		// console.log(p)
+		return p;
+		
+		// let terms = desc.split(/\+|-/);
+		// terms.forEach( t => {
+		// 
+		// 	p.set(belt, coef);
+		// })
+	}
+	
   
   tostr() : string {
   // [util.inspect.custom](depth, options) {
@@ -52,8 +97,9 @@ export class Poly extends StringifyingMap<BasisElt, number> {
         if (v != BigInt(1)) {
           bstr += `^${v}`
         }
-      }      
-      return coef == 1 ? bstr : `(${coef})` + bstr;
+      }
+			if(bstr == '') return ''+coef
+			return coef == 1 ? bstr : `(${coef})` + bstr;
     }).join(' + ')
     
     if(str.length == 0) return "0";
@@ -98,16 +144,35 @@ export class Poly extends StringifyingMap<BasisElt, number> {
     return this
   }
   
-  // times(other : Poly) : Poly {
-  // 
-  // }
+  times(other : Poly) : Poly {
+		let rslt = new Poly();
+		for(let belt of other.keys()) {
+			for(let b of this.keys()) {
+				let mono = new Map(b);
+				for (let [ident,power] of belt) {
+					mono.set(ident, (mono.has(ident)?mono.get(ident)!:BigInt(0)) + power)
+				}
+				
+				let prodcoef = other.get(belt)! * this.get(b)!;
+				rslt.set(mono, rslt.getOr(mono, 0) + prodcoef)
+			}
+		}
+		this.map = rslt.map;
+		this.keyMap = rslt.keyMap;
+   	return this;
+  }
+	
+	
 }
 
 
 
 export type Interval = [number, number]
-export type Spline = Map<Interval, Poly>;
-
+export class Spline extends Map<Interval, Poly> {
+	integrate() : number {
+		return 0;
+	}
+}
 
 export function spline2str(s : Spline) {
   let toret = ""
@@ -116,3 +181,15 @@ export function spline2str(s : Spline) {
   })
   return toret
 }
+
+
+//*******************************************//
+
+async function test() {
+  Poly.fresh().times
+}
+
+process.on('unhandledRejection', e => { throw e });
+
+if (require.main === module)
+  test();

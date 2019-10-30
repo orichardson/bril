@@ -36,7 +36,7 @@ const argCounts: {[key in bril.OpCode]: number | null} = {
   obv: 1
 };
 
-export type Value = boolean | BigInt | Number;
+export type Value = boolean | bigint | number;
 export type Env = Map<bril.Ident, Value>;
 
 export function get(env: Env, ident: bril.Ident) {

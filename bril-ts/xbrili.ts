@@ -6,9 +6,12 @@ import {readStdin, unreachable, StringifyingMap, map2str} from './util';
 import {Poly, Spline, spline2str, getVar} from './spline';
 
 
+
+type AEnv = {"env": brili.Env, "aenv": Map<bril.Ident, Spline>};
+
 function cloneAE( aenv: AEnv ) : AEnv {
   let aenv2 : Map<bril.Ident, Spline> = new Map()
-  aenv.aenv.forEach((v, k) => aenv2.set(k, new Map(v)))
+  aenv.aenv.forEach((v, k) => aenv2.set(k, new Spline(v)))
   return {env : new Map(aenv.env), aenv : new Map(aenv2)};
 }
 
@@ -36,7 +39,6 @@ let PC_NEXT : Action = {...brili.NEXT,...ALONE };
 let PC_END : Action = {...brili.END,...ALONE };
 let PC_BYE: Action = { newenvs : [] , ...brili.RESTART };
 
-type AEnv = {"env": brili.Env, "aenv": Map<bril.Ident, Spline>};
 
 function totalAVInterval(av : Spline) : number {
   let res = 0.;
@@ -66,7 +68,7 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
           return vr.copy().add(Poly.var(left))
         return Poly.var(left).add(Poly.var(right))
       }
-      let newInt = new Map();
+      let newInt = new Spline();
       getVar(env.aenv, left).forEach((vl, kl) => 
         getVar(env.aenv, right).forEach((vr, kr) => 
           newInt.set([kl[0] + kr[0], kl[1] + kr[1]], newPoly(vl, vr))))
@@ -77,8 +79,9 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
       let newPoly = (v : Poly) => {
         if (left === instr.dest)
         return Poly.var(left).add(Poly.const(val))
+        throw new Error("Oliver doesn't understand why this compiled, but this branch was never written.")
       }
-      let newInt = new Map();
+      let newInt = new Spline();
       getVar(env.aenv, left).forEach((v, k) => 
         newInt.set([k[0] + val, k[1] + val], newPoly(v)))
       env.aenv.set(instr.dest, newInt)
@@ -143,7 +146,7 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
     // let newEnv = cloneAE(env);
     var poly = Poly.fresh();
     // poly = poly.add(poly).add(Poly.fresh())
-    env.aenv.set(instr.dest, new Map([[[0.,1.], poly]]));
+    env.aenv.set(instr.dest, new Spline([[[0.,1.], poly]]));
     env.env.set(instr.dest, 0.5);
     return PC_NEXT;
   }
