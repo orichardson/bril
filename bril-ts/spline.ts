@@ -25,10 +25,15 @@ export class Poly extends StringifyingMap<BasisElt, number> {
     return map2str(key); 
   }
 
-  static rand_count : number = 0;
+  static rand_count : number = -1;
   static fresh_rand() : string {
     //console.log("fresh_rand", Poly.rand_count)
+<<<<<<< HEAD
     return "r_" + Poly.rand_count++;
+=======
+    Poly.rand_count++;
+    return "_r_" + Poly.rand_count;
+>>>>>>> 7466d39ee8af988a6f7129accc2c5e025619659a
   }
   static zero : Poly = new Poly([])
   static fresh() : Poly { 
@@ -122,13 +127,6 @@ export class Poly extends StringifyingMap<BasisElt, number> {
     }
     return res
   }
-  
-  neg() : Poly {
-    for ( let k of this.keys()) {
-      this.set(k, -this.get(k)!)
-    }
-    return this
-  }
 
   add(other : Poly) : Poly {
     for(let belt of other.keys()) {
@@ -142,6 +140,24 @@ export class Poly extends StringifyingMap<BasisElt, number> {
       }
     }
     return this
+  }
+
+  scale(v : number) : Poly {
+    for(let belt of this.keys()) {
+      let mycoef = getVar(this, belt);
+      this.set(belt, v*mycoef);
+    }
+    return this
+  }
+
+  equal(other: Poly) : boolean {
+    for(let belt of other.keys()) {
+      if(!this.has(belt))
+        return false
+      if(getVar(this, belt) != getVar(other, belt))
+        return false
+    }
+    return true
   }
   
   times(other : Poly) : Poly {
@@ -182,6 +198,7 @@ export function spline2str(s : Spline) {
   return toret
 }
 
+<<<<<<< HEAD
 
 //*******************************************//
 
@@ -193,3 +210,12 @@ process.on('unhandledRejection', e => { throw e });
 
 if (require.main === module)
   test();
+=======
+export function copySpline(s : Spline) {
+  let toret = new Map()
+  s.forEach( (poly, interval) => {
+    toret.set(interval, poly.copy())
+  })
+  return toret
+}
+>>>>>>> 7466d39ee8af988a6f7129accc2c5e025619659a

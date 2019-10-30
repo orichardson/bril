@@ -3,26 +3,20 @@ const util = require('util')
 import * as bril from './bril';
 import * as brili from './brili';
 import {readStdin, unreachable, StringifyingMap, map2str} from './util';
-import {Poly, Spline, spline2str, getVar} from './spline';
-
+import {Poly, Spline, spline2str, getVar, copySpline} from './spline';
 
 
 type AEnv = {"env": brili.Env, "aenv": Map<bril.Ident, Spline>};
 
 function cloneAE( aenv: AEnv ) : AEnv {
   let aenv2 : Map<bril.Ident, Spline> = new Map()
+<<<<<<< HEAD
   aenv.aenv.forEach((v, k) => aenv2.set(k, new Spline(v)))
+=======
+  aenv.aenv.forEach((v, k) => aenv2.set(k, copySpline(v)))
+>>>>>>> 7466d39ee8af988a6f7129accc2c5e025619659a
   return {env : new Map(aenv.env), aenv : new Map(aenv2)};
 }
-
-
-// function getBool(instr: bril.Operation, env: AEnv, index: number) {
-//   let val = brili.get(env.env, instr.args[index]);
-//   if (typeof val !== 'boolean') {
-//     throw `${instr.op} argument ${index} must be a boolean`;
-//   }
-//   return val;
-// }
 
 /**
  * The thing to do after interpreting an instruction: either transfer
@@ -46,6 +40,23 @@ function totalAVInterval(av : Spline) : number {
   return res;
 }
 
+// Apply conditioning to the target spline
+// Only implementing flt conditioning on addition for now
+// function applyCond(cond : Spline, old : Spline) : Spline {
+//   let res = copySpline(old)
+//   cond.forEach( (condPoly, condInter) => {
+//     old.forEach( (oldPoly, oldInter) => {
+//       if (scale === 0)
+//         res.set(oldInter, oldPoly)
+//       else {
+//         let newLower = Math.max(oldInter[0], (oldInter[0] - condInter[0]) / scale)
+//         let newInter = [newLower, oldInter[1]]
+//         res.set(newInter, oldPoly)
+//       }
+//     })
+//   })
+//   return res
+// }
 
 function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action {
   // Check that we have the right number of arguments
@@ -61,6 +72,7 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
       // Note that we need a special case when reassigning to avoid shenanigans
       // TODO: propogate reassigning forward...or make a fresh variable?  Not sure tbh
       // We need to forward propogate when branching anyway, so...
+<<<<<<< HEAD
       let newPoly = (vl : Poly, vr : Poly) => {
         if (left === instr.dest)
           return vl.copy().add(Poly.var(right))
@@ -72,10 +84,20 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
       getVar(env.aenv, left).forEach((vl, kl) => 
         getVar(env.aenv, right).forEach((vr, kr) => 
           newInt.set([kl[0] + kr[0], kl[1] + kr[1]], newPoly(vl, vr))))
+=======
+      let newInt = new Map();
+      getVar(env.aenv, left).forEach((vl, kl) => {
+        getVar(env.aenv, right).forEach((vr, kr) => {
+          let newPoly = vl.copy().add(vr.copy())
+          newInt.set([kl[0] + kr[0], kl[1] + kr[1]], newPoly)
+        })
+      })
+>>>>>>> 7466d39ee8af988a6f7129accc2c5e025619659a
       env.aenv.set(instr.dest, newInt)
     } // Left abstract
     else if (env.aenv.has(left)) {
       let val = brili.getFloat(instr, env.env, 1);
+<<<<<<< HEAD
       let newPoly = (v : Poly) => {
         if (left === instr.dest)
         return Poly.var(left).add(Poly.const(val))
@@ -84,6 +106,13 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
       let newInt = new Spline();
       getVar(env.aenv, left).forEach((v, k) => 
         newInt.set([k[0] + val, k[1] + val], newPoly(v)))
+=======
+      let newInt = new Map();
+      getVar(env.aenv, left).forEach((v, k) => {
+        let newPoly = v.copy().add(Poly.const(val))
+        newInt.set([k[0] + val, k[1] + val], newPoly)
+      })
+>>>>>>> 7466d39ee8af988a6f7129accc2c5e025619659a
       env.aenv.set(instr.dest, newInt)
     } else if (env.aenv.has(right)) {
       throw new Error("Unimplemented")
