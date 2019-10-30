@@ -54,16 +54,12 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 			let sgn : number = matchdata[1] == '-' ? -1 : 1
 			let coef : number = matchdata[2] == undefined ? 1 : parseFloat(matchdata[2])
 			
-			// console.log(sgn, coef);
 			
 			let rest = matchdata[3];
-			console.log('rest', rest);
 			let monos : BasisElt = new Map();
 			while(matchdata  = pow_exp.exec(rest)) {
 				if(matchdata == null || matchdata[0].trim().length == 0) 
 					break;
-					
-				console.log(matchdata);
 				
 				let power : string | number = matchdata[2];
 				if(power == undefined) 
@@ -72,8 +68,7 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 				monos.set(matchdata[1], BigInt(power));						
 			}
 			p.set(monos, coef * sgn);			
-			console.log(p);
-			console.log(monos);
+
 		}
 		
 		return p;
@@ -166,6 +161,33 @@ export class Poly extends StringifyingMap<BasisElt, number> {
    	return this;
   }
 	
+	integral() : Poly {
+		throw new Error("Unimplemented")
+	}	
+	
+	derivative( dim : string ) : Poly {
+		let rslt = new Poly();
+		
+		for(let belt of this.keys()) {
+			if( belt.has(dim)) {
+				let coef = this.get(belt)!;
+				let pow = belt.get(dim)!;
+				
+				coef *= Number(pow);
+				let newb = new Map(belt);
+				if(pow > 1) {
+					newb.set(dim, pow - BigInt(1) )
+				}else {
+					newb.delete(dim);
+				}
+				
+				rslt.set(newb, coef);
+			}
+		}
+		this.map = rslt.map;
+		this.keyMap = rslt.keyMap;
+		return this;
+	}
 	
 }
 
