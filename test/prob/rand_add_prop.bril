@@ -1,0 +1,7 @@
+main {
+  x: double = rand;
+  y: double = rand;
+  c: double = const 1.3;
+  z: double = fadd x y;
+  b: bool = flt z c;
+}
