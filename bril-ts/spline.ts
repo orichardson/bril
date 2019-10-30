@@ -76,13 +76,6 @@ export class Poly extends StringifyingMap<BasisElt, number> {
     }
     return res
   }
-  
-  neg() : Poly {
-    for ( let k of this.keys()) {
-      this.set(k, -this.get(k)!)
-    }
-    return this
-  }
 
   add(other : Poly) : Poly {
     for(let belt of other.keys()) {
@@ -96,6 +89,24 @@ export class Poly extends StringifyingMap<BasisElt, number> {
       }
     }
     return this
+  }
+
+  scale(v : number) : Poly {
+    for(let belt of this.keys()) {
+      let mycoef = getVar(this, belt);
+      this.set(belt, v*mycoef);
+    }
+    return this
+  }
+
+  equal(other: Poly) : boolean {
+    for(let belt of other.keys()) {
+      if(!this.has(belt))
+        return false
+      if(getVar(this, belt) != getVar(other, belt))
+        return false
+    }
+    return true
   }
   
   // times(other : Poly) : Poly {
@@ -113,6 +124,14 @@ export function spline2str(s : Spline) {
   let toret = ""
   s.forEach( (poly, interval)  => {
     toret += `[${interval[0]}, ${interval[1]}]: ${poly.tostr()} \n`;
+  })
+  return toret
+}
+
+export function copySpline(s : Spline) {
+  let toret = new Map()
+  s.forEach( (poly, interval) => {
+    toret.set(interval, poly.copy())
   })
   return toret
 }
