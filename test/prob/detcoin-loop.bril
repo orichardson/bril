@@ -1,0 +1,9 @@
+main {
+  b: bool = const false;
+start:
+  b: bool = not b;
+  c: bool = flip;
+  br c continue start;
+continue:
+  print c;
+}

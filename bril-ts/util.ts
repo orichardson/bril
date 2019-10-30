@@ -134,6 +134,17 @@ export abstract class StringifyingMap<K, V> {
     protected abstract stringifyKey(key: K): string;
 }
 
+export function map2str( x : Map<string,any> ) : string {
+  // TODO: does sort actually work for envs? probably not. 
+  return JSON.stringify( Array.from( x ).sort(), (key, value) => {
+  	if (typeof value === 'bigint') {
+  		return value.toString() + 'n';
+  	} else {
+  		return value;
+  	}
+  });
+}
+
 /**
  * taken from https://stackoverflow.com/questions/29085197/how-do-you-json-stringify-an-es6-map
  */
