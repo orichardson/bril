@@ -10,11 +10,7 @@ type AEnv = {"env": brili.Env, "aenv": Map<bril.Ident, Spline>};
 
 function cloneAE( aenv: AEnv ) : AEnv {
   let aenv2 : Map<bril.Ident, Spline> = new Map()
-<<<<<<< HEAD
   aenv.aenv.forEach((v, k) => aenv2.set(k, new Spline(v)))
-=======
-  aenv.aenv.forEach((v, k) => aenv2.set(k, copySpline(v)))
->>>>>>> 7466d39ee8af988a6f7129accc2c5e025619659a
   return {env : new Map(aenv.env), aenv : new Map(aenv2)};
 }
 
@@ -72,19 +68,6 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
       // Note that we need a special case when reassigning to avoid shenanigans
       // TODO: propogate reassigning forward...or make a fresh variable?  Not sure tbh
       // We need to forward propogate when branching anyway, so...
-<<<<<<< HEAD
-      let newPoly = (vl : Poly, vr : Poly) => {
-        if (left === instr.dest)
-          return vl.copy().add(Poly.var(right))
-        if (right === instr.dest)
-          return vr.copy().add(Poly.var(left))
-        return Poly.var(left).add(Poly.var(right))
-      }
-      let newInt = new Spline();
-      getVar(env.aenv, left).forEach((vl, kl) => 
-        getVar(env.aenv, right).forEach((vr, kr) => 
-          newInt.set([kl[0] + kr[0], kl[1] + kr[1]], newPoly(vl, vr))))
-=======
       let newInt = new Map();
       getVar(env.aenv, left).forEach((vl, kl) => {
         getVar(env.aenv, right).forEach((vr, kr) => {
@@ -92,27 +75,15 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
           newInt.set([kl[0] + kr[0], kl[1] + kr[1]], newPoly)
         })
       })
->>>>>>> 7466d39ee8af988a6f7129accc2c5e025619659a
       env.aenv.set(instr.dest, newInt)
     } // Left abstract
     else if (env.aenv.has(left)) {
       let val = brili.getFloat(instr, env.env, 1);
-<<<<<<< HEAD
-      let newPoly = (v : Poly) => {
-        if (left === instr.dest)
-        return Poly.var(left).add(Poly.const(val))
-        throw new Error("Oliver doesn't understand why this compiled, but this branch was never written.")
-      }
-      let newInt = new Spline();
-      getVar(env.aenv, left).forEach((v, k) => 
-        newInt.set([k[0] + val, k[1] + val], newPoly(v)))
-=======
       let newInt = new Map();
       getVar(env.aenv, left).forEach((v, k) => {
         let newPoly = v.copy().add(Poly.const(val))
         newInt.set([k[0] + val, k[1] + val], newPoly)
       })
->>>>>>> 7466d39ee8af988a6f7129accc2c5e025619659a
       env.aenv.set(instr.dest, newInt)
     } else if (env.aenv.has(right)) {
       throw new Error("Unimplemented")

@@ -28,12 +28,7 @@ export class Poly extends StringifyingMap<BasisElt, number> {
   static rand_count : number = -1;
   static fresh_rand() : string {
     //console.log("fresh_rand", Poly.rand_count)
-<<<<<<< HEAD
     return "r_" + Poly.rand_count++;
-=======
-    Poly.rand_count++;
-    return "_r_" + Poly.rand_count;
->>>>>>> 7466d39ee8af988a6f7129accc2c5e025619659a
   }
   static zero : Poly = new Poly([])
   static fresh() : Poly { 
