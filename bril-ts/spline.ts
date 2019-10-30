@@ -76,14 +76,7 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 			console.log(monos);
 		}
 		
-		// console.log(p)
 		return p;
-		
-		// let terms = desc.split(/\+|-/);
-		// terms.forEach( t => {
-		// 
-		// 	p.set(belt, coef);
-		// })
 	}
 	
   
