@@ -6,16 +6,21 @@ import {readStdin, unreachable, StringifyingMap, map2str} from './util';
 import {Poly, Spline, spline2str, getVar} from './spline';
 
 
-type AEnv = { env : brili.Env, bounds : Map<bril.Ident, Spline>, density : Map<bril.Ident, Spline> };
+type AEnv = {
+  env : brili.Env, 
+  bounds : Map<bril.Ident, Spline>, 
+  cdfs : Map<bril.Ident, Spline>,
+  // joint :  Poly
+};
 
 function cloneAE( aenv: AEnv ) : AEnv {
   let bounds2 : Map<bril.Ident, Spline> = new Map()
   aenv.bounds.forEach((v, k) => bounds2.set(k, new Spline(v)))
   
   let density2 : Map<bril.Ident, Spline> = new Map()
-  aenv.density.forEach((v, k) => density2.set(k, new Spline(v)))
+  aenv.cdfs.forEach((v, k) => density2.set(k, new Spline(v)))
 
-  return {env : new Map(aenv.env), bounds : new Map(bounds2), density : new Map(density2)};
+  return {env : new Map(aenv.env), bounds : new Map(bounds2), cdfs : new Map(density2)};
 }
 
 /**
@@ -148,10 +153,10 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   
   case "rand": {
     // let newEnv = cloneAE(env);
-    var poly = Poly.fresh_rand();
     // poly = poly.add(poly).add(Poly.fresh())
-    env.bounds.set(instr.dest, new Spline([[[0.,1.], poly]]));
-    env.env.set(instr.dest, 0.5);
+    env.bounds.set(instr.dest, Spline.rand());
+    env.env.set(instr.dest, .5);
+    env.cdfs.set(instr.dest, Spline.unif())
     return PC_NEXT;
   }
   
@@ -257,7 +262,7 @@ function evalFunc(func: bril.Function, buffer: any[][],
   // TODO: make this a priority queue
   type Task = "explore" | "merge";
   let NEW : Task = "explore";
-  let START : ProgPt = [0, {env: new Map(), bounds: new Map(), density: new Map()}];
+  let START : ProgPt = [0, {env: new Map(), bounds: new Map(), cdfs: new Map()}];
 
   let queue : PtMap<Task> = new PtMap([[START, NEW]]);
   probs.set(START, 1);
@@ -368,7 +373,7 @@ function evalFunc(func: bril.Function, buffer: any[][],
     k[0] + '. ', 
     "env: "+ util.inspect(k[1].env, opts),
     "bounds: "+ util.inspect(k[1].bounds, opts),
-    "density: "+ util.inspect(k[1].density, opts), '\n', finalDist.get(k), '\n'));
+    "density: "+ util.inspect(k[1].cdfs, opts), '\n', finalDist.get(k), '\n'));
   // console.log(best);
 }
 function evalProg(prog: bril.Program) {

@@ -122,7 +122,7 @@ export class Poly extends StringifyingMap<BasisElt, number> {
   }
   
   [util.inspect.custom](depth : any, options : any) {
-    return "Poly: "+ this.tostr();
+    return ""+ this.tostr();
   }
   
   copy() : Poly {
@@ -298,10 +298,13 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 
 
 export type Interval = [number, number]
+type AbsInterval = [Poly, Poly]
+
 export class Spline extends Map<Interval, Poly> {
 	static rand() : Spline {
-			return new Spline([[[0,1], Poly.fresh_rand()]])
-	}	
+			return new Spline([[[0,1], Poly.fresh_rand()]])		}	
+	static unif() : Spline {
+			return new Spline([[[0,1], Poly.const(1)]])		}	
 	
 	copy() : Spline {
 	  let toret = new Spline()
