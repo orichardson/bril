@@ -2,6 +2,6 @@ main {
 	x : double = rand;
 	y : double = rand;
 	z : double = fsub x y;
-	w : double = fsub z x;
-	q : double = fsub w w;
+	w : double = fmul z x;
+	q : double = fadd w w;
 }

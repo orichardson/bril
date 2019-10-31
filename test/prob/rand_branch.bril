@@ -1,7 +1,7 @@
 main {
   x: double = rand;
   y: double = const .7;
-  b: bool = flt x y;
+  b: bool = fgt x y;
   br b b1 b2;
 b1:
   a: int = const 1;
