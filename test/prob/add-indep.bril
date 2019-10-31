@@ -1,7 +1,7 @@
 main {
 	x : double = rand;
 	y : double = rand;
-	z : double = fadd x y;
-	w : double = fadd z x;
-	q : double = fadd w w;
+	z : double = fsub x y;
+	w : double = fsub z x;
+	q : double = fsub w w;
 }
