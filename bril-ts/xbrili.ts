@@ -18,6 +18,89 @@ function cloneAE( aenv: AEnv ) : AEnv {
   return {env : new Map(aenv.env), bounds : new Map(bounds2), density : new Map(density2)};
 }
 
+function applyFloatInter(left : Spline, right : Spline,
+  op : (n:number, m:number) => number, polyOp : (p : Poly, p2 : Poly) => Poly) : Spline {
+  let newSpline  = new Spline();
+  left.forEach((vl, kl) => {
+    right.forEach((vr, kr) => {
+      let newPoly = polyOp(vl.copy(), vr.copy())
+      let res = [op(kl[0], kr[0]), op(kl[1], kr[0]), op(kl[0], kr[1]), op(kl[1], kr[1])]
+      newSpline.set([Math.min(...res), Math.max(...res)], newPoly)
+    })
+  })
+  return newSpline
+}
+
+function applyFloatOp(instr: bril.DetValueOperation, env: AEnv, 
+  op : (n:number, m:number) => number, polyOp : (p : Poly, p2 : Poly) => Poly) {
+  let left = instr.args[0]
+  let right = instr.args[1]
+
+  function applyConst(val : number, sp : Spline) {
+    let newInt = new Spline();
+    sp.forEach((v, k) => {
+      let newPoly = polyOp(v.copy(), Poly.const(val))
+      let res = [op(k[0], val), op(k[1], val)]
+      newInt.set([Math.min(...res), Math.max(...res)], newPoly)
+    })
+    env.bounds.set(instr.dest, newInt)
+  }
+  // Both Abstract
+  if (env.bounds.has(left) && env.bounds.has(right)) {
+    let newSpline = applyFloatInter(getVar(env.bounds, left), getVar(env.bounds, right), op, polyOp)
+    env.bounds.set(instr.dest, newSpline)
+  }
+  // Left abstract
+  else if (env.bounds.has(left))
+    applyConst(brili.getFloat(instr, env.env, 1), getVar(env.bounds, left))
+  // Right abstract
+  else if (env.bounds.has(right))
+    applyConst(brili.getFloat(instr, env.env, 0), getVar(env.bounds, right))
+}
+
+function applyFloatCompare(instr: bril.DetValueOperation, env: AEnv, 
+  trueOp : (n:[number,number], m:number) => [number,number], 
+  falseOp : (n:[number,number], m:number) => [number,number]){
+  function applyCompare(env : AEnv, val : number, s : string, inter : Spline) {
+    let newE1 = cloneAE(env); // clone env, do both.
+    let newE2 = cloneAE(env); // clone env, do both.
+    newE1.env.set(instr.dest, true);
+    newE2.env.set(instr.dest, false);
+    let interTrue = getVar(newE1.bounds, s);
+    let interFalse = getVar(newE2.bounds, s);
+    let probTrue = 0.;
+    let probFalse = 0.;
+    inter.forEach((v, k) => {
+      let tv = trueOp(k, val)
+      let fv = falseOp(k, val)
+      if (tv[0] > tv[1])
+        probFalse += k[1] - k[0]
+      else if (fv[0] > fv[1]) 
+        probTrue  += k[1] - k[0]
+      else {
+        interTrue.delete(k); interTrue.set(tv, v)
+        interFalse.delete(k); interFalse.set(fv, v)
+        probTrue += tv[1] - tv[0]; probFalse += fv[1] - fv[0]
+      }
+    })
+    let totalProb = totalAVInterval(inter)
+    return { newenvs : 
+        [[newE1, probTrue / totalProb], 
+        [newE2, probFalse / totalProb]],
+        ...PC_NEXT}
+  }
+  let left = instr.args[0]
+  let right = instr.args[1]
+
+  if (env.bounds.has(left) && env.bounds.has(right)) 
+    throw "Unimplemented"
+  if (env.bounds.has(left))
+    return applyCompare(env, brili.getFloat(instr, env.env, 1), left, getVar(env.bounds, left))
+  if (env.bounds.has(right))
+    return applyCompare(env, brili.getFloat(instr, env.env, 0), right, getVar(env.bounds, right))
+  return {...PC_NEXT}
+}
+
 /**
  * The thing to do after interpreting an instruction: either transfer
  * control to a label, go to the next instruction, or end thefunction.
@@ -65,72 +148,41 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
 
   switch (instr.op) {
   case "fadd": {
-    let left = instr.args[0]
-    let right = instr.args[1]
-    // Both Abstract
-    if (env.bounds.has(left) && env.bounds.has(right)) {
-      // Note that we need a special case when reassigning to avoid shenanigans
-      // TODO: propogate reassigning forward...or make a fresh variable?  Not sure tbh
-      // We need to forward propogate when branching anyway, so...
-      let newInt  = new Spline();
-      getVar(env.bounds, left).forEach((vl, kl) => {
-        getVar(env.bounds, right).forEach((vr, kr) => {
-          let newPoly = vl.copy().add(vr.copy())
-          newInt.set([kl[0] + kr[0], kl[1] + kr[1]], newPoly)
-        })
-      })
-      env.bounds.set(instr.dest, newInt)
-    } // Left abstract
-    else if (env.bounds.has(left)) {
-      let val = brili.getFloat(instr, env.env, 1);
-      let newInt = new Spline();
-      getVar(env.bounds, left).forEach((v, k) => {
-        let newPoly = v.copy().add(Poly.const(val))
-        newInt.set([k[0] + val, k[1] + val], newPoly)
-      })
-      env.bounds.set(instr.dest, newInt)
-    } else if (env.bounds.has(right)) {
-      throw new Error("Unimplemented")
-    } return {...briliAction, ...ALONE}
+    applyFloatOp(instr, env, (a, b) => {return a + b}, (a, b) => {return a.add(b)})
+    return {...briliAction, ...ALONE}
   }
 
+  case "fsub": {
+    applyFloatOp(instr, env, (a, b) => {return a - b}, (a, b) => {return a.add(b.scale(-1))})
+    return {...briliAction, ...ALONE}
+  }
+
+  case "fmul": {
+    applyFloatOp(instr, env, (a, b) => {return a * b}, (a, b) => {return a.times(b)})
+    return {...briliAction, ...ALONE}
+  }
   case "flt": {
-    let left = instr.args[0]
-    let right = instr.args[1]
-    let newE1 = cloneAE(env); // clone env, do both.
-    let newE2 = cloneAE(env); // clone env, do both.
-    newE1.env.set(instr.dest, true);
-    newE2.env.set(instr.dest, false);
-    if (env.bounds.has(left) && env.bounds.has(right)) {
-      throw new Error("Unimplemented")
-    } if (env.bounds.has(left)) {
-      let val = brili.getFloat(instr, env.env, 1)
-      let inter = getVar(env.bounds, left);
-      let interTrue = getVar(newE1.bounds, left);
-      let interFalse = getVar(newE2.bounds, left);
-      let probTrue = 0.;
-      let probFalse = 0.;
-      inter.forEach((v, k) => {
-        if (val > k[1])
-          probFalse += k[1] - k[0]
-        else if (val < k[0]) 
-          probTrue  += k[1] - k[0]
-        else {
-          let tv : [number, number] = [k[0], Math.min(k[1], val)]
-          let fv : [number, number] = [Math.max(k[0], val), k[1]]
-          interTrue.delete(k); interTrue.set(tv, v)
-          interFalse.delete(k); interFalse.set(fv, v)
-          probTrue += tv[1] - tv[0]; probFalse += fv[1] - fv[0]
-        }
-      })
-      let totalProb = totalAVInterval(inter)
-      return { newenvs : 
-          [[newE1, probTrue / totalProb], 
-          [newE2, probFalse / totalProb]],
-          ...PC_NEXT}
-    } if (env.bounds.has(right)) {
-      throw new Error("Unimplemented")
-    } return {...briliAction, ...ALONE}
+    return applyFloatCompare(instr, env, 
+      (k, v) => {return [k[0], Math.min(k[1], v)]},
+      (k, v) => {return [Math.max(k[0], v), k[1]]})
+  }
+
+  case "fle": {
+    return applyFloatCompare(instr, env, 
+      (k, v) => {return [k[0], Math.min(k[1], v)]},
+      (k, v) => {return [Math.max(k[0], v), k[1]]})
+  }
+
+  case "fgt": {
+    return applyFloatCompare(instr, env, 
+      (k, v) => {return [Math.max(k[0], v), k[1]]},
+      (k, v) => {return [k[0], Math.min(k[1], v)]})
+  }
+
+  case "fge": {
+    return applyFloatCompare(instr, env, 
+      (k, v) => {return [Math.max(k[0], v), k[1]]},
+      (k, v) => {return [k[0], Math.min(k[1], v)]})
   }
 
   case "flip": {
