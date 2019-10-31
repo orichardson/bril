@@ -227,7 +227,7 @@ export class Poly extends StringifyingMap<BasisElt, number> {
    	return this.reduce();
   }
 	
-	integral( dim: string ) : Poly {
+	integrate( dim: string ) : Poly {
 		let rslt = new Poly();
 		
 		for(let belt of this.keys()) {
@@ -252,7 +252,7 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 		return this;
 	}	
 	
-	derivative( dim : string ) : Poly {
+	differentiate( dim : string ) : Poly {
 		let rslt = new Poly();
 		
 		for(let belt of this.keys()) {
@@ -276,15 +276,32 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 		return this;
 	}
 	
+	toNum() : number {
+		if(this.variables().size > 0)
+			throw new Error("Tried to turn abstract polynomial into a number.");
+			
+		return this.getOr( new Map(), 0);
+	}
+	
+	// convolve( other : Poly) : Poly {
+	// 
+	// }
+	
 }
 
+
+// class Dist {
+// 	// constraint and densities are over same set of variables.
+// 	density : Poly;
+// 	constraint: Poly;
+// }
 
 
 export type Interval = [number, number]
 export class Spline extends Map<Interval, Poly> {
-	integrate() : number {
-		return 0;
-	}
+	static rand() : Spline {
+			return new Spline([[[0,1], Poly.fresh_rand()]])
+	}	
 	
 	copy() : Spline {
 	  let toret = new Spline()
@@ -293,9 +310,17 @@ export class Spline extends Map<Interval, Poly> {
 	  })
 	  return toret
 	}
-	
-	
 
+	integral() : number {
+		let total = 0;
+		
+		for( let [iv, poly] of this ){
+			// let integrated = poly.copy().integrate();
+			// let diff
+		}
+		
+		return total;
+	}
 }
 
 export function spline2str(s : Spline) {
