@@ -65,9 +65,6 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
     let right = instr.args[1]
     // Both Abstract
     if (env.aenv.has(left) && env.aenv.has(right)) {
-      // Note that we need a special case when reassigning to avoid shenanigans
-      // TODO: propogate reassigning forward...or make a fresh variable?  Not sure tbh
-      // We need to forward propogate when branching anyway, so...
       let newInt  = new Spline();
       getVar(env.aenv, left).forEach((vl, kl) => {
         getVar(env.aenv, right).forEach((vr, kr) => {
