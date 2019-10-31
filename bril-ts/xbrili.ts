@@ -144,7 +144,7 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   
   case "rand": {
     // let newEnv = cloneAE(env);
-    var poly = Poly.fresh();
+    var poly = Poly.fresh_rand();
     // poly = poly.add(poly).add(Poly.fresh())
     env.aenv.set(instr.dest, new Spline([[[0.,1.], poly]]));
     env.env.set(instr.dest, 0.5);

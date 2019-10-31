@@ -2,11 +2,14 @@ const util = require('util')
 
 import {StringifyingMap,map2str} from './util';
 
-function fresh(vals : IterableIterator<string>, name : string) : string {
+function fresh(vals : Set<string>, name : string) : string {
+	if(!vals.has(name))
+		return name;
+		
   var i;
   for (i = 0; ; i++) {
     var s = name + "_" + i
-    if (!(s in vals))
+    if (!vals.has(s))
       return s;
   }
 }
@@ -25,14 +28,17 @@ export class Poly extends StringifyingMap<BasisElt, number> {
     return map2str(key); 
   }
 
-  static rand_count : number = -1;
-  static fresh_rand() : string {
-    //console.log("fresh_rand", Poly.rand_count)
+  private static rand_count : number = 0;
+	static fresh_rand_name() : string {
     return "r_" + Poly.rand_count++;
   }
+	private static const_count : number = -1;
+  static fresh_const_name() : string {
+    return (Poly.const_count++ >= 0)? "C_" + Poly.const_count : "C";
+  }
   static zero : Poly = new Poly([])
-  static fresh() : Poly { 
-    return new Poly([[new Map([[Poly.fresh_rand(), BigInt(1)]]), 1]])
+  static fresh_rand() : Poly { 
+    return new Poly([[new Map([[Poly.fresh_rand_name(), BigInt(1)]]), 1]])
   }
   static var(s : string) : Poly { 
     return new Poly([[new Map([[s, BigInt(1)]]), 1]])
@@ -40,8 +46,9 @@ export class Poly extends StringifyingMap<BasisElt, number> {
   static const(c : number) : Poly { 
     return new Poly([[new Map(), c]])
   }
+
 	static parse(desc : string) : Poly {
-		let pow_exp = /\(?([a-z]\w*)(?:\^([0-9]+))?\)?/g
+		let pow_exp = /\(?([a-zA-Z]\w*)(?:\^([0-9]+))?\)?/g
 		var exp_mono = new RegExp(String.raw`(\+|-)?\s*\(?([0-9.]+)?\)?((?:\s*${pow_exp.source})*)\s*`, 'g')
 		
 		let p = new Poly();
@@ -74,6 +81,26 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 		return p;
 	}
 	
+	reduce() : Poly {
+		for(let k of this.keys() ) {
+			let coef = this.get(k)!;
+			if(coef == 0) {
+				this.delete(k);
+			}
+			else {
+				//let newb = new Map(k);
+				for ( let [s,pow] of k) {
+					if(pow == BigInt(0) ) {
+						this.delete(k);
+						k.delete(s);
+						this.set(k, this.getOr(k,0) + coef)
+					}
+				}
+			}
+		}
+		
+		return this;
+	}
   
   tostr() : string {
   // [util.inspect.custom](depth, options) {
@@ -111,20 +138,6 @@ export class Poly extends StringifyingMap<BasisElt, number> {
     return res
   }
 
-  add(other : Poly) : Poly {
-    for(let belt of other.keys()) {
-      let coef = getVar(other, belt)
-      if(this.has(belt)) {
-        let mycoef = getVar(this, belt);
-        this.set(belt, mycoef+coef);
-      }
-      else {
-        this.set(belt, coef);
-      }
-    }
-    return this
-  }
-
   scale(v : number) : Poly {
     for(let belt of this.keys()) {
       let mycoef = getVar(this, belt);
@@ -142,7 +155,40 @@ export class Poly extends StringifyingMap<BasisElt, number> {
     }
     return true
   }
-  
+	
+	variables() : Set<string> {
+		let vars = new Set<string>();
+		for (let belt of this.keys()) {
+			for (let v of belt.keys()) {
+				vars.add(v);
+			}
+		} 
+		return vars;
+	}
+	
+	/* Application of a polynomial as a function
+	
+	(arg : Poly | BasisElt | number) : Poly {
+		
+	}*/
+	add(other : Poly) : Poly {
+		for(let belt of other.keys()) {
+			let coef = getVar(other, belt)
+			if(this.has(belt)) {
+				let mycoef = getVar(this, belt);
+				this.set(belt, mycoef+coef);
+			}
+			else {
+				this.set(belt, coef);
+			}
+		}
+		return this.reduce();
+	}
+	
+	minus(other : Poly) : Poly {
+		return this.add(other.copy().scale(-1))
+	}
+	
   times(other : Poly) : Poly {
 		let rslt = new Poly();
 		for(let belt of other.keys()) {
@@ -161,8 +207,29 @@ export class Poly extends StringifyingMap<BasisElt, number> {
    	return this;
   }
 	
-	integral() : Poly {
-		throw new Error("Unimplemented")
+	integral( dim: string ) : Poly {
+		let rslt = new Poly();
+		
+		for(let belt of this.keys()) {
+			let newb = new Map(belt);
+			let coef = this.get(belt)!;
+			let pow = belt.get(dim)!;
+
+			if( belt.has(dim)) {
+				coef /= Number(pow) + 1;
+				newb.set(dim, pow + BigInt(1));
+			} else {
+				newb.set(dim, BigInt(1));
+			}	
+			rslt.set(newb, coef);
+		}
+		
+		// never forget the +C!
+		rslt.set(new Map([[Poly.fresh_const_name(), BigInt(1)]]), 1);
+		
+		this.map = rslt.map;
+		this.keyMap = rslt.keyMap;
+		return this;
 	}	
 	
 	derivative( dim : string ) : Poly {
@@ -218,12 +285,13 @@ export function spline2str(s : Spline) {
 }
 
 //*******************************************//
+// Testing.
 
-async function test() {
-  Poly.fresh().times
-}
-
-process.on('unhandledRejection', e => { throw e });
-
-if (require.main === module)
-  test();
+// async function test() {
+//   Poly.fresh().times
+// }
+// 
+// process.on('unhandledRejection', e => { throw e });
+// 
+// if (require.main === module)
+//   test();
