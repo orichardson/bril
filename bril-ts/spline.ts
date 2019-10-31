@@ -36,7 +36,7 @@ export class Poly extends StringifyingMap<BasisElt, number> {
   static fresh_const_name() : string {
     return (Poly.const_count++ >= 0)? "C_" + Poly.const_count : "C";
   }
-  static zero : Poly = new Poly([])
+  static readonly zero : Poly = new Poly([])
   static fresh_rand() : Poly { 
     return new Poly([[new Map([[Poly.fresh_rand_name(), BigInt(1)]]), 1]])
   }
@@ -166,11 +166,31 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 		return vars;
 	}
 	
-	/* Application of a polynomial as a function
-	
-	(arg : Poly | BasisElt | number) : Poly {
+	/* Application of a polynomial as a function. Note, that this returns a
+	polynomial, but it's not this! */
+	evaluate(substitute : {[name: string] : Poly}) : Poly {
+		let rslt = new Poly();
 		
-	}*/
+		for (let belt of this.keys()) {
+			let temp = Poly.const(this.get(belt)!); // start with just coefficient
+			
+			for (let [s, pow] of belt) {
+				if(s in substitute) {
+					let replacement = substitute[s];
+					for(let i = 0; i < pow; i++){
+						temp.times(replacement);
+					}
+				} else {
+					temp.times(Poly.var(s));
+				}
+			}
+			
+			rslt.add(temp);
+		}
+		return rslt;
+	}
+	
+	
 	add(other : Poly) : Poly {
 		for(let belt of other.keys()) {
 			let coef = getVar(other, belt)
@@ -204,7 +224,7 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 		}
 		this.map = rslt.map;
 		this.keyMap = rslt.keyMap;
-   	return this;
+   	return this.reduce();
   }
 	
 	integral( dim: string ) : Poly {
@@ -273,6 +293,8 @@ export class Spline extends Map<Interval, Poly> {
 	  })
 	  return toret
 	}
+	
+	
 
 }
 
