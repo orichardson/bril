@@ -33,14 +33,14 @@ export function fresh(prefix: string, sofar: Set<string>) {
  * Map that stringifies the key objects in order to leverage
  * the javascript native Map and preserve key uniqueness.
  */
-export abstract class StringifyingMap<K, V> {
+export abstract class StringifyingMap<K, V> implements Map<K,V> {
     protected map : Map<string, V> = new Map<string, V>();
     protected keyMap : Map<string, K> = new Map<string, K>();
     
     constructor()
-    constructor( array : Array<[K,V]> )
+    constructor( array : Iterable<[K,V]> )
     constructor(exiting : StringifyingMap<K,V>)
-    constructor( arrayORexisting?: StringifyingMap<K,V> | Array<[K,V]>) {
+    constructor( arrayORexisting?: StringifyingMap<K,V> | Iterable<[K,V]>) {
       if( arrayORexisting !== undefined) {
         if(arrayORexisting instanceof StringifyingMap) {
           this.map = arrayORexisting.map;
@@ -70,14 +70,15 @@ export abstract class StringifyingMap<K, V> {
         let keyString = this.stringifyKey(key);
         return this.map.has(keyString) ? this.map.get(keyString)! : defau;
     }
-    set(key: K, value: V): StringifyingMap<K, V> {
+    set(key: K, value: V): this {
         let keyString = this.stringifyKey(key);
         this.map.set(keyString, value);
         this.keyMap.set(keyString, key);
+        this.size = this.map.size;
         return this;
     }
     pop_first() : [K, V] | undefined {
-      if(this.size() == 0) {
+      if(this.size == 0) {
         return undefined;
       } else {
         let k : K = this.keyMap.values().next().value;
@@ -98,13 +99,56 @@ export abstract class StringifyingMap<K, V> {
         if (!this.has(key)) {
             let value = defaultValue();
             this.set(key, value);
+            this.size = this.map.size;
             return true;
         }
         return false;
     }
+    
+    [Symbol.iterator](): IterableIterator<[K,V]> {
+      return this.entries();
+    }
+    
+    // entries(): IterableIterator<[K,V]>{
+    //   let itk = this.keyMap.entries();
+    //   let itv = this.map.entries();
+    //   const iterator : IterableIterator<[K,V]>  {
+    //     next() {
+    //       let k = itk.next();
+    //       let v = itv.next();
+    //       if (k.value[0] !== v.value)
+    //         throw new Error("StringifyMap Broken: "+k.value[0]+" != "+v.value[0])
+    //       return { value: [k.value[1],v[1]], done : k.done};
+    //     }
+    // 
+    //     [Symbol.iterator]() {
+    //       return iterator;
+    //     }
+    //   } 
+    // 
+    //   return iterator;
+    // }
+    *entries(): IterableIterator<[K,V]>{
+      for(let k of this.keyMap.keys()) {
+        yield [this.keyMap.get(k)!, this.map.get(k)!];
+      }
+    }
+
 
     keys(): IterableIterator<K> {
-        return this.keyMap.values();
+      return this.keyMap.values();
+    }
+    
+    values(): IterableIterator<V> {
+      return this.map.values();
+    }
+    
+    [Symbol.toStringTag] = "SMap";
+    
+    forEach(callbackfn: (value: V, key: K, map: Map<K, V>) => void, thisArg?: any) {
+      for( let k of this.keys() ){
+        callbackfn(this.get(k)!, k, this);
+      }
     }
 
     keyList(): K[] {
@@ -115,17 +159,17 @@ export abstract class StringifyingMap<K, V> {
         let keyString = this.stringifyKey(key);
         let flag = this.map.delete(keyString);
         this.keyMap.delete(keyString);
+        this.size = this.map.size;
         return flag;
     }
 
     clear(): void {
         this.map.clear();
         this.keyMap.clear();
+        this.size = this.map.size;
     }
 
-    size(): number {
-        return this.map.size;
-    }
+    public size: number = 0;
 
     /**
      * Turns the `key` object to a primitive `string` for the underlying `Map`

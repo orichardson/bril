@@ -185,13 +185,13 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 				}
 			}
 			
-			rslt.add(temp);
+			rslt.plus(temp);
 		}
 		return rslt;
 	}
 	
 	
-	add(other : Poly) : Poly {
+	plus(other : Poly) : Poly {
 		for(let belt of other.keys()) {
 			let coef = getVar(other, belt)
 			if(this.has(belt)) {
@@ -206,7 +206,7 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 	}
 	
 	minus(other : Poly) : Poly {
-		return this.add(other.copy().scale(-1))
+		return this.plus(other.copy().scale(-1))
 	}
 	
   times(other : Poly) : Poly {
@@ -282,13 +282,14 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 			
 		return this.getOr( new Map(), 0);
 	}
-	
-	// convolve( other : Poly) : Poly {
-	// 
-	// }
-	
 }
 
+// export type Arith = number | Poly | Spline
+// export namespace Arith {
+// 	export function add(a : Arith, b : Arith) : Arith {
+// 
+// 	}
+// }
 
 // class Dist {
 // 	// constraint and densities are over same set of variables.
@@ -300,30 +301,177 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 export type Interval = [number, number]
 type AbsInterval = [Poly, Poly]
 
-export class Spline extends Map<Interval, Poly> {
+// class GSpline<J, I> extends Map<[I,I], Poly> {}
+
+
+/*
+Spline is gives polynomials of one variable. 
+*/
+export class Spline extends StringifyingMap<Interval, Poly> {
+	protected stringifyKey(i : Interval) {
+		return i[0].toString() + "," + i[1].toString();
+	}
 	static rand() : Spline {
-			return new Spline([[[0,1], Poly.fresh_rand()]])		}	
-	static unif() : Spline {
-			return new Spline([[[0,1], Poly.const(1)]])		}	
+		let r =  Poly.fresh_rand_name();
+		return new Spline([[[0,1],Poly.var(r)]]).of(r)		
+	}	
+	static unif(name : string) : Spline {
+			return new Spline([/*[[-Infinity, 0], Poly.zero], */
+					[[0,1], Poly.const(1)]/*, [1, Infinity], Poly.zero]*/]).of(name);	
+	}	
+					
+	public variable : string = "";
+	
+	of ( variable : string) {
+		this.variable = variable;
+		return this;
+	}
+	
+
 	
 	copy() : Spline {
-	  let toret = new Spline()
+	  let toret = new Spline().of(this.variable)
 	  this.forEach( (poly, interval) => {
 	    toret.set(interval, poly.copy())
 	  })
 	  return toret
 	}
-
-	integral() : number {
-		let total = 0;
+	
+	/*
+	Take a spline, and sort the intervals from smallest to biggest, and 
+	split them up so there are no overlaps. Also, add new ones so there are no gaps.
+	Goes from -Infinity to Infinity.
+	
+	This is the "Riemann" standardization, along the input axis. Makes it easy to look up densities and do multiplication.
+	*/
+	standardize() : Spline {
+		let oldData = new Map(this);
+		let points : number[] = [-Infinity, Infinity];
 		
-		for( let [iv, poly] of this ){
-			// let integrated = poly.copy().integrate();
-			// let diff
+		for(let k of this.keys() ) { points.push(...k); }
+		
+		points.sort();
+		this.clear();
+		
+		for(let i = 1; i < points.length; i++){
+			let ivl : Interval = [points[i-i], points[i]];
+			console.log(ivl);
+			if( oldData.has(ivl) ) {
+				this.set(ivl, oldData.get(ivl)!);
+				oldData.delete(ivl);
+			}
+			else
+				this.set(ivl, Poly.zero.copy());
 		}
 		
-		return total;
+		console.log(points);
+		console.log(this);
+		if( oldData.size != 0) {
+			for(let [k,v] of oldData) {
+				let idx0 = points.indexOf(k[0]);
+				let idx1 = points.indexOf(k[1]);
+				console.log(k,v);
+				
+				for(let j = idx0; j < idx1; j++) {
+					this.get([points[j],points[j+1]])!.plus(v);
+				}
+			}
+		}
+		return this;
 	}
+	
+	add( other: Spline, split=true) : Spline {		
+		if(split) {
+			let oldData = new Map(this);
+			let points : number[] = [];
+
+			for(let k of this.keys() ) { points.push(...k); }
+			for(let k of other.keys()) { points.push(...k); }
+
+			points.sort();
+			this.clear();
+		
+			let ivl: Interval
+			for( let m of [oldData, other] ) {
+				for(let [k,v] of m) {
+					let idx0 = points.indexOf(k[0]);
+					let idx1 = points.indexOf(k[1]);
+					
+					for(let j = idx0; j < idx1; j++) {
+						ivl = [points[j],points[j+1]];
+						if(this.has(ivl))
+							this.get(ivl)!.plus(v);
+						else this.set(ivl, v);
+					}
+				}
+			}
+		} else {
+			for( let [k,v] of other ) {
+				if(this.has(k)) {
+					this.get(k)!.plus(v);
+				} else {
+					this.set(k, v);
+				}
+			}
+		}
+		return this;
+	}
+	
+	scale( amt : number ) {
+		this.forEach( (p,ivl) => p.scale(amt));
+	}
+	
+	
+	times( other: Spline) : Spline {		
+		let oldData = new Map(this);
+		let points : number[] = [];
+
+		for(let k of this.keys() ) { points.push(...k); }
+		for(let k of other.keys()) { points.push(...k); }
+
+		points.sort();
+		this.clear();
+		
+		for(let [k,v] of oldData) {
+			let j = points.indexOf(k[0]);
+			let end = points.indexOf(k[1]);
+
+			for(; j < end; j++) {
+				this.set([points[j],points[j+1]], v);
+			}
+		}
+	
+		let ivl : Interval
+		for(let [k,v] of oldData) {
+			let j = points.indexOf(k[0]);
+			let end = points.indexOf(k[1]);
+
+			for(; j < end; j++) {
+				ivl = [points[j],points[j+1]]
+				if(this.has(ivl))
+					this.get(ivl)!.times(v);
+			}
+		}
+		return this;
+	}
+	
+	// convolve(other : Poly, oldvar1: string, oldvar2: string, newvar:string ): Poly {
+	// 	let convolved = this.evaluate({ [oldvar1] : Poly.var(newvar).minus(Poly.var(oldvar2))})
+	// 		.times(other).integrate(oldvar2);
+	// 	return convolved;
+	// }
+	
+
+	// integrate() : Spline {
+	// 	let total = 0;
+	// 
+	// 	for( let [iv, poly] of this ){
+	// 		// let integrated = poly.copy().integrate();
+	// 		// let diff
+	// 	}
+	// 
+	// 	return total;
+	// }
 }
 
 export function spline2str(s : Spline) {

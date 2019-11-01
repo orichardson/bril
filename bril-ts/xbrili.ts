@@ -15,10 +15,10 @@ type AEnv = {
 
 function cloneAE( aenv: AEnv ) : AEnv {
   let bounds2 : Map<bril.Ident, Spline> = new Map()
-  aenv.bounds.forEach((v, k) => bounds2.set(k, new Spline(v)))
+  aenv.bounds.forEach((v, k) => bounds2.set(k, v.copy()))
   
   let density2 : Map<bril.Ident, Spline> = new Map()
-  aenv.cdfs.forEach((v, k) => density2.set(k, new Spline(v)))
+  aenv.cdfs.forEach((v, k) => density2.set(k, v.copy()))
 
   return {env : new Map(aenv.env), bounds : new Map(bounds2), cdfs : new Map(density2)};
 }
@@ -42,7 +42,7 @@ function applyFloatOp(instr: bril.DetValueOperation, env: AEnv,
   let right = instr.args[1]
 
   function applyConst(val : number, sp : Spline) {
-    let newInt = new Spline();
+    let newInt = new Spline().of(instr.dest);
     sp.forEach((v, k) => {
       let newPoly = polyOp(v.copy(), Poly.const(val))
       let res = [op(k[0], val), op(k[1], val)]
@@ -153,12 +153,12 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
 
   switch (instr.op) {
   case "fadd": {
-    applyFloatOp(instr, env, (a, b) => {return a + b}, (a, b) => {return a.add(b)})
+    applyFloatOp(instr, env, (a, b) => {return a + b}, (a, b) => {return a.plus(b)})
     return {...briliAction, ...ALONE}
   }
 
   case "fsub": {
-    applyFloatOp(instr, env, (a, b) => {return a - b}, (a, b) => {return a.add(b.scale(-1))})
+    applyFloatOp(instr, env, (a, b) => {return a - b}, (a, b) => {return a.plus(b.scale(-1))})
     return {...briliAction, ...ALONE}
   }
 
@@ -205,10 +205,10 @@ function evalInstr(instr: bril.Instruction, env: AEnv, buffer: any[][]): Action 
   
   case "rand": {
     // let newEnv = cloneAE(env);
-    // poly = poly.add(poly).add(Poly.fresh())
+    // poly = poly.plus(poly).plus(Poly.fresh())
     env.bounds.set(instr.dest, Spline.rand());
     env.env.set(instr.dest, .5);
-    env.cdfs.set(instr.dest, Spline.unif())
+    env.cdfs.set(instr.dest, Spline.unif(instr.dest))
     return PC_NEXT;
   }
   
@@ -320,9 +320,9 @@ function evalFunc(func: bril.Function, buffer: any[][],
   probs.set(START, 1);
   let transition = makeTransFn(func,buffer);
 
-  while(queue.size() > 0) {
-    // console.log(queue.size(), queue.keys());
-    // console.log('\nQueue Size: ', queue.size());
+  while(queue.size > 0) {
+    // console.log(queue.size, queue.keys());
+    // console.log('\nQueue Size: ', queue.size);
     // queue.keyList().forEach( q =>  console.log('  pt ', nodenumber(q), ' \t ', q, probs.get(q), queue.get(q))  );
 
     // TODO: potential optimization: find run with highest mass?
@@ -367,7 +367,7 @@ function evalFunc(func: bril.Function, buffer: any[][],
 
     // book-keeping: update best.
     let is_same = best.has(current_pt) &&
-        ( twohop.size() == best.get(current_pt)!.size() );
+        ( twohop.size == best.get(current_pt)!.size );
     if( is_same ) {
       let best_here = best.get(current_pt)!;
       for (let p of twohop.keys()) {
@@ -382,7 +382,7 @@ function evalFunc(func: bril.Function, buffer: any[][],
       finished.add(pt2str(current_pt));
     }
     else {
-      if ( (!maxQLen || (queue.size() < maxQLen-1)) &&
+      if ( (!maxQLen || (queue.size < maxQLen-1)) &&
             ( tol <= 0 || (probs.getOr(current_pt, 1) > tol ))
       ) {
         best.set(current_pt, twohop);
@@ -411,7 +411,7 @@ function evalFunc(func: bril.Function, buffer: any[][],
         }
       }
       else {
-        // console.log(`skipped!\t queue size: ${queue.size()}\t maxQLen: ${maxQLen} \t p: ${probs.get(current_pt)}\t tol: ${tol}`);
+        // console.log(`skipped!\t queue size: ${queue.size}\t maxQLen: ${maxQLen} \t p: ${probs.get(current_pt)}\t tol: ${tol}`);
       }
       // console.log(best.get(START), current_pt, (best.get(START)!.getOr(current_pt, 1)));
 
