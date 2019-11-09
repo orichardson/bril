@@ -146,7 +146,10 @@ export class Poly extends StringifyingMap<BasisElt, number> {
     return this
   }
 
-  equal(other: Poly) : boolean {
+  equal(other: Poly | undefined) : boolean {
+		if (other === undefined)
+			return false;
+			
     for(let belt of other.keys()) {
       if(!this.has(belt))
         return false
@@ -282,6 +285,12 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 			
 		return this.getOr( new Map(), 0);
 	}
+	
+	
+	// dangerous.
+	valueOf() : number {
+		return this.toNum();
+	}
 }
 
 // export type Arith = number | Poly | Spline
@@ -299,18 +308,56 @@ export class Poly extends StringifyingMap<BasisElt, number> {
 
 
 export type Interval = [number, number]
-type AbsInterval = [Poly, Poly]
+// type AbsInterval = [Poly, Poly]
 
-// class GSpline<J, I> extends Map<[I,I], Poly> {}
+class GSpline<J extends { toString : () => string }>
+ 	extends StringifyingMap<[J,J], Poly>
+{
+	protected stringifyKey(i : [J,J]) {
+		return i[0].toString() + "," + i[1].toString();
+	}
+	
+	public variable : string = "";
+	
+	of ( variable : string) {
+		this.variable = variable;
+		return this;
+	}
+		
+	copy() : this {
+		let toret = (new (<any>this.constructor)).of(this.variable)
+		this.forEach( (poly, interval) => {
+			toret.set(interval, poly.copy())
+		})
+		return toret
+	}
+	
+	scale( amt : number ) : this {
+		this.forEach( (p,ivl) => p.scale(amt));
+		return this;
+	}
+	// 
+	// integrate(lbound: number = -Infinity, ubound: number = Infinity) : Poly {
+	// 	let new_me = this.copy().standardize();
+	// 	let sum = Poly.const(0);
+	// 
+	// 	for( let [k,p] of new_me) {
+	// 		let p_int = p.integrate( new_me.variable );
+	// 		// console.log("p_int: ", p_int, "\t Evaluation: ",);
+	// 		sum.plus(p_int.evaluate({ [new_me.variable] : Poly.const(k[1]) })
+	// 			.minus(p_int.evaluate({ [new_me.variable] : Poly.const(k[0]) })));
+	// 	}
+	// 
+	// 	return sum;
+	// }
+
+}
 
 
 /*
 Spline is gives polynomials of one variable. 
 */
-export class Spline extends StringifyingMap<Interval, Poly> {
-	protected stringifyKey(i : Interval) {
-		return i[0].toString() + "," + i[1].toString();
-	}
+export class Spline extends GSpline<number> {
 	static rand() : Spline {
 		let r =  Poly.fresh_rand_name();
 		return new Spline([[[0,1],Poly.var(r)]]).of(r)		
@@ -318,24 +365,13 @@ export class Spline extends StringifyingMap<Interval, Poly> {
 	static unif(name : string) : Spline {
 			return new Spline([/*[[-Infinity, 0], Poly.zero], */
 					[[0,1], Poly.const(1)]/*, [1, Infinity], Poly.zero]*/]).of(name);	
-	}	
-					
-	public variable : string = "";
-	
-	of ( variable : string) {
-		this.variable = variable;
-		return this;
 	}
+					
+
 	
 
 	
-	copy() : Spline {
-	  let toret = new Spline().of(this.variable)
-	  this.forEach( (poly, interval) => {
-	    toret.set(interval, poly.copy())
-	  })
-	  return toret
-	}
+
 	
 	/*
 	Take a spline, and sort the intervals from smallest to biggest, and 
@@ -344,52 +380,78 @@ export class Spline extends StringifyingMap<Interval, Poly> {
 	
 	This is the "Riemann" standardization, along the input axis. Makes it easy to look up densities and do multiplication.
 	*/
-	standardize() : Spline {
+	standardize() : this {
 		let oldData = new Map(this);
 		let points : number[] = [-Infinity, Infinity];
 		
 		for(let k of this.keys() ) { points.push(...k); }
 		
+		// remove duplicates
+		points = points.filter((item,idx) => points.indexOf(item) === idx);
+				
 		points.sort();
 		this.clear();
 		
 		for(let i = 1; i < points.length; i++){
-			let ivl : Interval = [points[i-i], points[i]];
-			console.log(ivl);
+			let ivl : Interval = [points[i-1], points[i]];
+
+			// console.log(ivl, i, points[i-1], points[i]);
 			if( oldData.has(ivl) ) {
 				this.set(ivl, oldData.get(ivl)!);
 				oldData.delete(ivl);
 			}
-			else
-				this.set(ivl, Poly.zero.copy());
+			else 
+				this.set(ivl, Poly.const(0));
 		}
 		
-		console.log(points);
-		console.log(this);
+		// console.log("Afterwards: ", points);
+		// console.log(this);
 		if( oldData.size != 0) {
 			for(let [k,v] of oldData) {
 				let idx0 = points.indexOf(k[0]);
 				let idx1 = points.indexOf(k[1]);
-				console.log(k,v);
 				
 				for(let j = idx0; j < idx1; j++) {
 					this.get([points[j],points[j+1]])!.plus(v);
 				}
 			}
 		}
+
 		return this;
 	}
 	
-	add( other: Spline, split=true) : Spline {		
+	reduce() : this  {
+		for( let ivl1 of this.keyList() ) {
+			for (let ivl2 of this.keyList()) {
+				if(ivl1[1] == ivl2[0]) {
+					let poly = this.get(ivl1)!;
+					if(poly.equal(this.get(ivl2))) {
+						// console.log("Merge! @ ",ivl1, ivl2, "both are ", poly);
+						this.delete(ivl1);
+						this.delete(ivl2);
+						this.set([ivl1[0], ivl2[1]], poly);
+					}
+				}
+			}
+		}
+		return this;
+	}
+	
+	add( other: Spline, split=true) : this {		
 		if(split) {
 			let oldData = new Map(this);
 			let points : number[] = [];
 
 			for(let k of this.keys() ) { points.push(...k); }
 			for(let k of other.keys()) { points.push(...k); }
+			
+			// remove duplicates
+			points = points.filter((item,idx) => points.indexOf(item) === idx);
+			
 
 			points.sort();
 			this.clear();
+
 		
 			let ivl: Interval
 			for( let m of [oldData, other] ) {
@@ -397,11 +459,13 @@ export class Spline extends StringifyingMap<Interval, Poly> {
 					let idx0 = points.indexOf(k[0]);
 					let idx1 = points.indexOf(k[1]);
 					
+					
 					for(let j = idx0; j < idx1; j++) {
 						ivl = [points[j],points[j+1]];
-						if(this.has(ivl))
+
+						if(this.has(ivl)) 
 							this.get(ivl)!.plus(v);
-						else this.set(ivl, v);
+						else this.set(ivl, v.copy());
 					}
 				}
 			}
@@ -410,24 +474,25 @@ export class Spline extends StringifyingMap<Interval, Poly> {
 				if(this.has(k)) {
 					this.get(k)!.plus(v);
 				} else {
-					this.set(k, v);
+					this.set(k, v.copy());
 				}
 			}
 		}
 		return this;
 	}
-	
-	scale( amt : number ) {
-		this.forEach( (p,ivl) => p.scale(amt));
-	}
+
 	
 	
-	times( other: Spline) : Spline {		
+	times( other: Spline) : this {	
 		let oldData = new Map(this);
 		let points : number[] = [];
 
 		for(let k of this.keys() ) { points.push(...k); }
 		for(let k of other.keys()) { points.push(...k); }
+	
+		// remove duplicates
+		points = points.filter((item,idx) => points.indexOf(item) === idx);
+		
 
 		points.sort();
 		this.clear();
@@ -437,12 +502,12 @@ export class Spline extends StringifyingMap<Interval, Poly> {
 			let end = points.indexOf(k[1]);
 
 			for(; j < end; j++) {
-				this.set([points[j],points[j+1]], v);
+				this.set([points[j],points[j+1]], v.copy());
 			}
 		}
 	
 		let ivl : Interval
-		for(let [k,v] of oldData) {
+		for(let [k,v] of other) {
 			let j = points.indexOf(k[0]);
 			let end = points.indexOf(k[1]);
 
@@ -460,6 +525,21 @@ export class Spline extends StringifyingMap<Interval, Poly> {
 	// 		.times(other).integrate(oldvar2);
 	// 	return convolved;
 	// }
+	
+	
+	integrate(lbound: number = -Infinity, ubound: number = Infinity) : Poly {
+		let new_me = this.copy().standardize();
+		let sum = Poly.const(0);
+		
+		for( let [k,p] of new_me) {
+			let p_int = p.integrate( new_me.variable );
+			// console.log("p_int: ", p_int, "\t Evaluation: ",);
+			sum.plus(p_int.evaluate({ [new_me.variable] : Poly.const(k[1]) })
+				.minus(p_int.evaluate({ [new_me.variable] : Poly.const(k[0]) })));
+		}
+		
+		return sum;
+	}
 	
 
 	// integrate() : Spline {
